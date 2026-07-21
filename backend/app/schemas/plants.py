@@ -9,6 +9,15 @@ class PlantCreate(BaseModel):
     watering_interval_days: int = 7
     light_requirement: str | None = None
 
+# Request model used when updating an existing plant
+class PlantUpdate(BaseModel):
+    species: str
+    nickname: str
+    location: str | None = None
+    watering_interval_days: int | None = None
+    light_requirement: str | None = None
+
+
 # Response model returned by API
 class PlantResponse(BaseModel):
     id: int
@@ -19,6 +28,7 @@ class PlantResponse(BaseModel):
     light_requirement: str | None
     last_watered_at: datetime | None
     created_at: datetime
+
 
     class Config:
         from_attributes = True
