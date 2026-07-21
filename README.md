@@ -1,16 +1,24 @@
-# React + Vite
+# Overview 
+** Sprout ** is a desktop application that helps non-technical gardeners create and manage a personal plant collection without feeling overwhelmed. Whether users already know their plants' needs or are just getting started, Sprout organizes care into a clear, actionable schedule.
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+## Features 
+### Plant Collection 
+- Add plants to a personal collection with species, nickname, location, and photos
+- View care details automatically when a plant is added such as: watering itervals, light requirements, fertilizing schedule, and repottnig guidance.
 
-Currently, two official plugins are available:
+### Personalized Care Plan 
+- Generate a care schedule based on plants in your collection 
+- ** Homepage ** highlights upcoming and overdue watering tasks 
+- ** History ** tracks when you last watered, repotted, or fertilized each plant
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### Calendar Integration
+- Sync plant care tasks ( starting with watering, expanding to fertilizing, repotting, and more ) into your personal calendar so everything lives in one place
 
-## React Compiler
+## Tech Stack 
+- Next.js, React
+- FastAPI (  Python )
+- SQLAlchemy
+- Gemini 3.5 Flash 
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Target Users 
+Amateur and begineer gardeners with little to no prior plant care experience who want a simple, reliable tool to stay organized. 
