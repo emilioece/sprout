@@ -1,5 +1,5 @@
 # Overview 
-** Sprout ** is a esktop application that helps non-technical gardeners create and manage a personal plant collection without feeling overwhelmed. Whether users already know their plants' needs or are just getting started, Sprout organizes care into a clear, actionable schedule.
+** Sprout ** is a desktop application that helps non-technical gardeners create and manage a personal plant collection without feeling overwhelmed. Whether users already know their plants' needs or are just getting started, Sprout organizes care into a clear, actionable schedule.
 
 ## Features 
 ### Plant Collection 
