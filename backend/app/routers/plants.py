@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -75,3 +76,15 @@ def delete_plant(plant_id: int, db: Session = Depends(get_db)):
     db.commit()
     
     return None
+
+# Update a plant's last watered timestamp to current UTC time.
+@router.post("/{plant_id}/water", response_model=PlantResponse)
+def water_plant(plant_id:int, db: Session = Depends(get_db)):
+    plant = get_plant_or_404(plant_id, db)
+
+    plant.last_watered_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(plant)
+
+    return plant
