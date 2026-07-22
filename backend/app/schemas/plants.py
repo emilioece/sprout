@@ -11,11 +11,12 @@ class PlantCreate(BaseModel):
 
 # Request model used when updating an existing plant
 class PlantUpdate(BaseModel):
-    species: str
-    nickname: str
+    species: str | None = None 
+    nickname: str| None = None
     location: str | None = None
     watering_interval_days: int | None = None
     light_requirement: str | None = None
+    last_watered_at: datetime | None = None
 
 
 # Response model returned by API
