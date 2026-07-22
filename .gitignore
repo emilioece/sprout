@@ -1,41 +1,88 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# edited by jullianna
+# resolving merge conflict
+# .gitignore conflcit, both branches have their own .gitignore (one for node , one for python)
+# want both set of rules so deleting:
+# <<<<<<< , ======= , >>>>>>>
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# ---------- Python / FastAPI ----------
+__pycache__/
+*.py[codz]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# testing
-/coverage
+# Environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# next.js
-/.next/
-/out/
+# Testing / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
 
-# production
-/build
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
 
-# misc
+# ---------- Node / Next.js ----------
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# ---------- Databases (local dev) ----------
+*.db
+*.sqlite3
+*.db-journal
+
+# ---------- Environment variables ----------
+.env
+.env.*
+!.env.example
+.envrc
+
+# ---------- OS ----------
 .DS_Store
-*.pem
+Thumbs.db
 
-# debug
+# ---------- IDE ----------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ---------- Logs ----------
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
