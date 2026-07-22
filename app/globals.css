@@ -3,6 +3,21 @@
 :root {
   --background: #F3F1EA;
   --foreground: #171717;
+
+  /* Added by Jullianna: page.tsx uses var(--muted-foreground) for secondary
+     text, but it was never defined, so that text rendered in the default
+     color instead of a muted tone. */
+  --muted-foreground: #6B7263;
+
+  /* Added by Jullianna: the brand green used on buttons was hardcoded as
+     #3A4A32 in page.tsx. Defining it here means we change it in one place. */
+  --accent: #3A4A32;
+
+  /* Added by Jullianna: card backgrounds were hardcoded to #FFFFFF. */
+  --card: #FFFFFF;
+
+  /* Added by Jullianna: input border color, was hardcoded as #D8D3C7. */
+  --border: #D8D3C7;
 }
 
 @theme inline {
@@ -10,12 +25,23 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Added by Jullianna: exposes Fraunces to Tailwind so it can also be used
+     as a utility class if we want, not just inline styles. */
+  --font-serif: var(--font-fraunces);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    /* Added by Jullianna: dark-mode versions of the new variables above,
+       so the app doesn't break when the OS is set to dark mode. */
+    --muted-foreground: #9CA396;
+    --accent: #5C7150;
+    --card: #1A1A1A;
+    --border: #2E2E2E;
   }
 }
 
