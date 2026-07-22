@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchPlants, createPlant, type Plant } from "@/lib/api";
+import { fetchPlants, createPlant, waterPlant, type Plant } from "@/lib/api";
 
 export default function Home() {
     const [plants, setPlants] = useState<Plant[]>([]);
@@ -23,6 +23,21 @@ export default function Home() {
         setPlants([...plants, saved]);
         setNickname("");
         setSpecies("");
+    }
+
+    // updated by jullianna 7/22
+    // added a new function to handle watering a plant
+    // Mark a plant as watered right now
+    async function handleWater(plant: Plant) {
+        const updated = await waterPlant(plant);
+        setPlants(plants.map((p) => (p.id === updated.id ? updated : p)));
+    }
+
+    // Turn "days until water" into readable text
+    function waterLabel(days: number) {
+        if (days < 0) return "Overdue";
+        if (days === 0) return "Water today";
+        return `Water in ${days} days`;
     }
 
     return (
@@ -62,8 +77,26 @@ export default function Home() {
             ) : (
                 <ul className="flex flex-col gap-2">
                     {plants.map((plant) => (
-                        <li key={plant.id} className="border rounded p-3">
-                            <strong>{plant.name}</strong> — {plant.species}
+                        <li
+                            key={plant.id}
+                            className="border rounded p-3 flex items-center justify-between"
+                        >
+                            <span>
+                                <strong>{plant.name}</strong> — {plant.species}
+                            </span>
+
+                            <span className="flex items-center gap-3">
+                                <span className="text-sm opacity-70">
+                                    {waterLabel(plant.daysUntilWater)}
+                                </span>
+                                <button
+                                    onClick={() => handleWater(plant)}
+                                    className="px-3 py-1 rounded text-white text-sm"
+                                    style={{ background: "#3A4A32" }}
+                                >
+                                    💧 Done
+                                </button>
+                            </span>
                         </li>
                     ))}
                 </ul>
