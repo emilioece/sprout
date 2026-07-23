@@ -142,7 +142,7 @@ export default function Home() {
                             style={{ backgroundColor: "#284E36" }}
                         >
                             <span className="text-base flex items-center justify-center w-6 h-6 rounded-md bg-[#3A6349]">
-                                🧑‍🌾
+                                🏡
                             </span>
                             Dashboard
                         </a>
@@ -485,10 +485,10 @@ export default function Home() {
                                     {/* quick select plant species preset list */}
                                     <div className="flex flex-col gap-2">
                                         {[
-                                            { name: "Monstera deliciosa", tags: "easy · indirect", icon: "🌿" },
-                                            { name: "Epipremnum aureum", tags: "easy · low light", icon: "🍃" },
-                                            { name: "Ficus lyrata", tags: "expert · indirect", icon: "🌱" },
-                                            { name: "Sansevieria trifasciata", tags: "easy · low light", icon: "🌾" },
+                                            { name: "Fern", tags: "easy · indirect", icon: "🌿" },
+                                            { name: "Moss", tags: "easy · low light", icon: "🍃" },
+                                            { name: "Cactus", tags: "expert · indirect", icon: "🌱" },
+                                            { name: "Bamboo", tags: "easy · low light", icon: "🌾" },
                                         ].map((item) => (
                                             <button
                                                 key={item.name}
