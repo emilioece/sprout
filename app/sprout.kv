@@ -1,0 +1,348 @@
+#:import hex_color kivy.utils.get_color_from_hex
+#:import EMOJI_FONT main.EMOJI_FONT
+
+# ---------------------------------------------------------------------------
+# Reusable styled widgets
+# ---------------------------------------------------------------------------
+
+<RoundedBox>:
+    canvas.before:
+        Color:
+            rgba: self.border_color
+        RoundedRectangle:
+            pos: self.x - self.border_width, self.y - self.border_width
+            size: self.width + self.border_width * 2, self.height + self.border_width * 2
+            radius: [self.radius]
+        Color:
+            rgba: self.bg_color
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [self.radius]
+
+<PillButton>:
+    background_normal: ""
+    background_down: ""
+    background_color: [0, 0, 0, 0]
+    color: self.fg_color
+    bold: True
+    font_size: "13sp"
+    canvas.before:
+        Color:
+            rgba: self.bg_color if self.state == "normal" else (self.bg_color[0]*0.9, self.bg_color[1]*0.9, self.bg_color[2]*0.9, self.bg_color[3])
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [self.radius]
+
+<IconButton@PillButton>:
+    size_hint: None, None
+    size: dp(40), dp(40)
+
+<IconButtonRow>:
+    padding: dp(14), 0
+    spacing: dp(8)
+    canvas.before:
+        Color:
+            rgba: self.bg_color if self.state == "normal" else (self.bg_color[0]*0.92, self.bg_color[1]*0.92, self.bg_color[2]*0.92, self.bg_color[3])
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [self.radius]
+    Label:
+        text: root.icon
+        font_name: EMOJI_FONT
+        font_size: "16sp"
+        size_hint_x: None
+        width: dp(28)
+    Label:
+        text: root.label_text
+        color: root.fg_color
+        bold: True
+        font_size: "13sp"
+        halign: "left"
+        valign: "middle"
+        text_size: self.size
+
+<SideNavItem>:
+    size_hint_y: None
+    height: dp(46)
+    canvas.before:
+        Color:
+            rgba: self.bg_color
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(12)]
+    Label:
+        text: root.icon
+        font_name: EMOJI_FONT
+        size_hint_x: None
+        width: dp(30)
+        font_size: "16sp"
+    Label:
+        text: root.text
+        color: root.fg_color
+        bold: True
+        font_size: "13sp"
+        halign: "left"
+        valign: "middle"
+        text_size: self.size
+
+# ---------------------------------------------------------------------------
+# Stat card (Plants / Overdue / Due today)
+# ---------------------------------------------------------------------------
+
+<StatCard>:
+    orientation: "vertical"
+    padding: dp(18)
+    size_hint_y: None
+    height: dp(120)
+    bg_color: 1, 1, 1, 1
+    border_color: hex_color("#E5E3DC")
+    radius: dp(16)
+
+    Label:
+        text: root.icon
+        font_name: EMOJI_FONT
+        font_size: "22sp"
+        size_hint_y: None
+        height: dp(30)
+        color: 0, 0, 0, 1
+
+    Widget:
+
+    Label:
+        text: root.value
+        font_size: "26sp"
+        bold: True
+        color: hex_color("#284E36")
+        size_hint_y: None
+        height: dp(30)
+        halign: "left"
+        text_size: self.size
+
+    Label:
+        text: root.label_text
+        font_size: "11sp"
+        bold: True
+        color: hex_color("#788177")
+        size_hint_y: None
+        height: dp(16)
+        halign: "left"
+        text_size: self.size
+
+# ---------------------------------------------------------------------------
+# Plant row (one item in "Upcoming watering")
+# ---------------------------------------------------------------------------
+
+<PlantRow>:
+    orientation: "horizontal"
+    size_hint_y: None
+    height: dp(72)
+    padding: dp(14)
+    spacing: dp(12)
+    bg_color: 1, 1, 1, 1
+    border_color: hex_color("#E5E3DC")
+    radius: dp(16)
+
+    BoxLayout:
+        size_hint_x: None
+        width: dp(44)
+        canvas.before:
+            Color:
+                rgba: hex_color("#E8EFE6")
+            Ellipse:
+                pos: self.pos
+                size: self.size
+        Label:
+            text: root.initials
+            bold: True
+            color: hex_color("#284E36")
+            font_size: "12sp"
+
+    BoxLayout:
+        orientation: "vertical"
+        Label:
+            text: root.plant_name
+            bold: True
+            color: hex_color("#1E2A20")
+            font_size: "14sp"
+            halign: "left"
+            valign: "bottom"
+            text_size: self.size
+        Label:
+            text: root.subtitle
+            color: hex_color("#788177")
+            font_size: "11sp"
+            halign: "left"
+            valign: "top"
+            text_size: self.size
+
+    IconButton:
+        text: "\U0001F4A7"
+        font_name: EMOJI_FONT
+        bg_color: hex_color("#E8F0FE")
+        fg_color: hex_color("#1A73E8")
+        radius: dp(12)
+        on_release: root.on_water()
+
+    Label:
+        text: root.due_label
+        size_hint_x: None
+        width: dp(70)
+        color: hex_color("#788177")
+        font_size: "11sp"
+        halign: "right"
+        valign: "middle"
+        text_size: self.size
+
+    IconButton:
+        text: "\U0001F5D1"
+        font_name: EMOJI_FONT
+        bg_color: 0, 0, 0, 0
+        fg_color: hex_color("#9A9E97")
+        size: dp(34), dp(34)
+        radius: dp(10)
+        on_release: root.on_delete()
+
+# ---------------------------------------------------------------------------
+# Root layout
+# ---------------------------------------------------------------------------
+
+<RootLayout>:
+    orientation: "horizontal"
+    canvas.before:
+        Color:
+            rgba: hex_color("#F3F1EA")
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    # ---------------- Sidebar ----------------
+    BoxLayout:
+        orientation: "vertical"
+        size_hint_x: None
+        width: dp(240)
+        padding: dp(16)
+        spacing: dp(10)
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+            Color:
+                rgba: hex_color("#E5E3DC")
+            Line:
+                points: [self.right, self.y, self.right, self.top]
+                width: 1
+
+        BoxLayout:
+            orientation: "vertical"
+            size_hint_y: None
+            height: dp(64)
+            padding: [dp(6), 0]
+            BoxLayout:
+                size_hint_y: None
+                height: dp(30)
+                spacing: dp(6)
+                Label:
+                    text: "\U0001F331"
+                    font_name: EMOJI_FONT
+                    font_size: "20sp"
+                    size_hint_x: None
+                    width: dp(26)
+                Label:
+                    text: "Sprout"
+                    bold: True
+                    font_size: "20sp"
+                    color: hex_color("#1E2A20")
+                    halign: "left"
+                    text_size: self.size
+            Label:
+                text: root.plant_count_label
+                font_size: "11sp"
+                color: hex_color("#788177")
+                halign: "left"
+                text_size: self.size
+                size_hint_y: None
+                height: dp(18)
+
+        SideNavItem:
+            icon: "\U0001F3E1"
+            text: "Dashboard"
+            bg_color: hex_color("#284E36")
+            fg_color: 1, 1, 1, 1
+
+        SideNavItem:
+            icon: "\U0001FAB4"
+            text: "My Plants"
+            bg_color: 0, 0, 0, 0
+            fg_color: hex_color("#2B352C")
+
+        SideNavItem:
+            icon: "\U0001F4C5"
+            text: "Schedule"
+            bg_color: 0, 0, 0, 0
+            fg_color: hex_color("#2B352C")
+
+        SideNavItem:
+            icon: "\U0001F50D"
+            text: "Symptom Guide"
+            bg_color: 0, 0, 0, 0
+            fg_color: hex_color("#2B352C")
+
+        Widget:
+
+        RoundedBox:
+            orientation: "vertical"
+            size_hint_y: None
+            height: dp(84)
+            padding: dp(12)
+            bg_color: hex_color("#E9EEE6")
+            border_color: hex_color("#E9EEE6")
+            radius: dp(16)
+            BoxLayout:
+                size_hint_y: None
+                height: dp(18)
+                spacing: dp(4)
+                Label:
+                    text: "\U0001F4A1"
+                    font_name: EMOJI_FONT
+                    font_size: "12sp"
+                    size_hint_x: None
+                    width: dp(20)
+                Label:
+                    text: "Tip for beginners"
+                    bold: True
+                    font_size: "11sp"
+                    color: hex_color("#284E36")
+                    halign: "left"
+                    text_size: self.size
+            Label:
+                text: "Check the Dashboard daily -- it shows exactly what needs attention today."
+                font_size: "10sp"
+                color: hex_color("#616C60")
+                halign: "left"
+                valign: "top"
+                text_size: self.size
+
+        PillButton:
+            text: "+  Add Plant"
+            size_hint_y: None
+            height: dp(48)
+            bg_color: hex_color("#284E36")
+            radius: dp(14)
+            on_release: app.open_add_modal()
+
+    # ---------------- Main content ----------------
+    ScrollView:
+        do_scroll_x: False
+        BoxLayout:
+            id: main_content
+            orientation: "vertical"
+            size_hint_y: None
+            height: self.minimum_height
+            padding: dp(48)
+            spacing: dp(24)
