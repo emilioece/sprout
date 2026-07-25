@@ -1,27 +1,22 @@
-"""
-
-Setup:
-    pip install kivy requests
-    python main.py
-
-"""
+# ===========================================================================
+# Sprout Desktop Application - Main Entry Point
+# ===========================================================================
 
 import os
+import sys
 import platform
 import threading
+
+# Guarantee Python finds the local views folder regardless of run directory
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.text import LabelBase
 from kivy.core.window import Window
+from kivy.graphics import Color, Rectangle
 from kivy.metrics import dp
-from kivy.properties import (
-    BooleanProperty,
-    ListProperty,
-    NumericProperty,
-    ObjectProperty,
-    StringProperty,
-)
+from kivy.properties import ListProperty, NumericProperty, ObjectProperty, StringProperty
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
@@ -32,10 +27,14 @@ from kivy.uix.textinput import TextInput
 from kivy.utils import get_color_from_hex as hex_color
 
 import api
-
+from views.dashboard import render_dashboard
+from views.my_plants import render_my_plants
+from views.schedule import render_schedule
+from views.symptom_guide import render_symptom_guide, render_symptom_detail
 
 
 def _register_emoji_font():
+    """Detects system font paths to register system emoji fonts across macOS, Windows, and Linux."""
     local_override = [
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "emoji_font.ttf"),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "emoji_font.ttc"),
@@ -44,10 +43,7 @@ def _register_emoji_font():
     if system == "Darwin":
         system_candidates = ["/System/Library/Fonts/Apple Color Emoji.ttc"]
     elif system == "Windows":
-        system_candidates = [
-            "C:/Windows/Fonts/seguiemj.ttf",
-            "C:/Windows/Fonts/Seguiemj.ttf",
-        ]
+        system_candidates = ["C:/Windows/Fonts/seguiemj.ttf", "C:/Windows/Fonts/Seguiemj.ttf"]
     else:
         system_candidates = [
             "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
@@ -62,25 +58,20 @@ def _register_emoji_font():
                 return "EmojiFont"
             except Exception:
                 continue
-    return None  # falls back to Kivy's default font
+    return None
 
 
 EMOJI_FONT = _register_emoji_font()
 
-
-# ---------------------------------------------------------------------------
-# color palette
-# ---------------------------------------------------------------------------
-COLOR_BG = hex_color("#F3F1EA")
+# Global Color Palette Definitions
 COLOR_DARK_GREEN = hex_color("#284E36")
 COLOR_DARKEST = hex_color("#1E2A20")
 COLOR_MUTED = hex_color("#788177")
 COLOR_MUTED2 = hex_color("#616C60")
 COLOR_BORDER = hex_color("#E5E3DC")
-COLOR_CARD_GREEN = hex_color("#E9EEE6")
 COLOR_RED = hex_color("#DC2626")
-COLOR_RED_BG = hex_color("#FEE2E2")
 
+# Sample species choices for Step 1 of adding a plant
 QUICK_SPECIES = [
     ("Fern", "\U0001F33F", "easy \u00b7 indirect"),
     ("Moss", "\U0001F343", "easy \u00b7 low light"),
@@ -89,9 +80,13 @@ QUICK_SPECIES = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# buttons
-# ---------------------------------------------------------------------------
+class EmojiLabel(Label):
+    """Simple EmojiLabel relying on standard font_size scaling."""
+    def __init__(self, **kwargs):
+        if EMOJI_FONT:
+            kwargs["font_name"] = EMOJI_FONT
+        super().__init__(**kwargs)
+
 
 class RoundedBox(BoxLayout):
     bg_color = ListProperty(hex_color("#FFFFFF"))
@@ -137,20 +132,41 @@ class PlantRow(RoundedBox):
             self.on_delete_cb(self.plant_id, self.plant_name)
 
 
+class SymptomRow(ButtonBehavior, RoundedBox):
+    icon = StringProperty("")
+    title = StringProperty("")
+    subtitle = StringProperty("4 possible causes \u00b7 4 fixes")
+    urgency_text = StringProperty("")
+    urgency_color = ListProperty([0, 0, 0, 1])
+    urgency_bg = ListProperty([1, 1, 1, 1])
+
+
 class RootLayout(BoxLayout):
     plant_count_label = StringProperty("0 plants in collection")
 
 
-class IconRow(BoxLayout):
+class IconButtonRow(ButtonBehavior, RoundedBox):
+    icon = StringProperty("")
+    label_text = StringProperty("")
+    fg_color = ListProperty(COLOR_DARKEST)
 
+
+class SelectableCard(ButtonBehavior, RoundedBox):
+    pass
+
+
+class IconRow(BoxLayout):
     def __init__(self, icon="", text="", text_color=None, bold=True,
-                 icon_size="16sp", text_size="12sp", icon_width=dp(26),
+                 icon_size="12sp", text_size="11sp", icon_width=dp(20),
                  halign="left", **kwargs):
         super().__init__(orientation="horizontal", **kwargs)
-        icon_lbl = Label(text=icon, font_name=EMOJI_FONT, font_size=icon_size,
-                         size_hint_x=None, width=icon_width, halign=halign,
-                         valign="middle")
-        icon_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        icon_lbl = EmojiLabel(
+            text=icon,
+            font_size=icon_size,
+            size_hint=(None, None),
+            size=(icon_width, dp(20)),
+            pos_hint={"center_y": 0.5}
+        )
         text_lbl = Label(text=text, font_size=text_size, bold=bold,
                          color=text_color or COLOR_DARKEST, halign=halign,
                          valign="middle")
@@ -159,27 +175,12 @@ class IconRow(BoxLayout):
         self.add_widget(text_lbl)
 
 
-class IconButtonRow(ButtonBehavior, RoundedBox):
-
-
-    icon = StringProperty("")
-    label_text = StringProperty("")
-    fg_color = ListProperty(COLOR_DARKEST)
-
-
-# ---------------------------------------------------------------------------
-# Add Plant modal
-# ---------------------------------------------------------------------------
-
 class AddPlantModal(ModalView):
+    """Two-step modal window for adding a new plant."""
     def __init__(self, on_saved, **kwargs):
-        # Size relative to the actual window instead of a fixed pixel value --
-        # a fixed dp(...) size can end up taller than the window on some
-        # displays/DPI settings, which clips the modal off the top/bottom.
         width = min(dp(480), Window.width * 0.92)
         height = min(dp(620), Window.height * 0.9)
-        super().__init__(size_hint=(None, None), size=(width, height),
-                         auto_dismiss=False, **kwargs)
+        super().__init__(size_hint=(None, None), size=(width, height), auto_dismiss=False, **kwargs)
         self.on_saved = on_saved
         self.species = ""
         self.nickname_input = None
@@ -187,93 +188,100 @@ class AddPlantModal(ModalView):
         self.step = 1
         self._build_step_1()
 
-    # ---- shared chrome -----------------------------------------------
     def _header(self, title, subtitle, show_back=False):
-        header = BoxLayout(size_hint_y=None, height=dp(56), spacing=dp(8),
-                           padding=(dp(4), 0))
+        header = BoxLayout(size_hint_y=None, height=dp(52), spacing=dp(8), padding=(dp(4), 0))
         if show_back:
-            back_btn = PillButton(text="<", size_hint=(None, None),
-                                  size=(dp(32), dp(32)), bg_color=hex_color("#EFECE6"),
-                                  fg_color=COLOR_MUTED2, radius=dp(16))
+            back_btn = PillButton(text="<", size_hint=(None, None), size=(dp(32), dp(32)), bg_color=hex_color("#EFECE6"), fg_color=COLOR_MUTED2, radius=dp(16))
             back_btn.bind(on_release=lambda *_: self._build_step_1())
             header.add_widget(back_btn)
 
         title_box = BoxLayout(orientation="vertical")
-        title_lbl = Label(text=title, bold=True, font_size="18sp",
-                          color=COLOR_DARKEST, halign="left", valign="bottom")
+        title_lbl = Label(text=title, bold=True, font_size="18sp", color=COLOR_DARKEST, halign="left", valign="bottom")
         title_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
-        sub_lbl = Label(text=subtitle, font_size="11sp", color=COLOR_MUTED,
-                        halign="left", valign="top")
+        sub_lbl = Label(text=subtitle, font_size="11sp", color=COLOR_MUTED, halign="left", valign="top")
         sub_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
         title_box.add_widget(title_lbl)
         title_box.add_widget(sub_lbl)
         header.add_widget(title_box)
 
-        close_btn = PillButton(text="X", size_hint=(None, None), size=(dp(32), dp(32)),
-                               bg_color=hex_color("#EFECE6"), fg_color=COLOR_MUTED2,
-                               radius=dp(16))
+        close_btn = PillButton(text="X", size_hint=(None, None), size=(dp(32), dp(32)), bg_color=hex_color("#EFECE6"), fg_color=COLOR_MUTED2, radius=dp(16))
         close_btn.bind(on_release=lambda *_: self.dismiss())
         header.add_widget(close_btn)
         return header
 
     def _labeled_input(self, label_text, placeholder="", multiline=False):
-        box = BoxLayout(orientation="vertical", size_hint_y=None,
-                        height=dp(74) if multiline else dp(54), spacing=dp(4))
-        lbl = Label(text=label_text, font_size="11sp", bold=True, color=COLOR_MUTED2,
-                    size_hint_y=None, height=dp(16), halign="left")
-        lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
-        box.add_widget(lbl)
-        ti = TextInput(hint_text=placeholder, multiline=multiline,
-                       background_normal="", background_active="", background_disabled_normal="",
-                       background_color=hex_color("#F6F5F0"),
-                       foreground_color=COLOR_DARKEST, hint_text_color=hex_color("#9A9E97"),
-                       cursor_color=COLOR_DARK_GREEN, padding=(dp(12), dp(10)),
-                       size_hint_y=None, height=dp(38) if not multiline else dp(50))
+        box = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(74) if multiline else dp(54), spacing=dp(4))
+        if label_text:
+            lbl = Label(text=label_text, font_size="11sp", bold=True, color=COLOR_MUTED2, size_hint_y=None, height=dp(16), halign="left")
+            lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+            box.add_widget(lbl)
+
+        ti = TextInput(
+            hint_text=placeholder, multiline=multiline, background_normal="", background_active="",
+            background_disabled_normal="", background_color=hex_color("#F6F5F0"),
+            foreground_color=COLOR_DARKEST, hint_text_color=hex_color("#9A9E97"),
+            cursor_color=COLOR_DARK_GREEN, padding=(dp(14), dp(10)),
+            size_hint_y=None, height=dp(40) if not multiline else dp(50)
+        )
         box.add_widget(ti)
         return box, ti
 
-    # ---- step 1: choose species ---------------------------------------
     def _build_step_1(self):
+        """Step 1: Choose plant species."""
         self.step = 1
         self.clear_widgets()
-        root = BoxLayout(orientation="vertical")
+
+        root = RoundedBox(orientation="vertical", bg_color=[1, 1, 1, 1], border_color=COLOR_BORDER, radius=dp(20), padding=dp(20))
         root.add_widget(self._header("Identify your plant", "Step 1 of 2"))
 
-
         scroll = ScrollView(do_scroll_x=False)
-        body = BoxLayout(orientation="vertical", padding=dp(20), spacing=dp(12),
-                         size_hint_y=None)
+        body = BoxLayout(orientation="vertical", spacing=dp(12), size_hint_y=None, padding=[0, dp(10), 0, dp(10)])
         body.bind(minimum_height=body.setter("height"))
 
-        # search, photo, and descriptions
+        tab_bar = RoundedBox(orientation="horizontal", size_hint_y=None, height=dp(42), padding=dp(3), spacing=dp(2), bg_color=hex_color("#ECE9E1"), border_color=hex_color("#ECE9E1"), radius=dp(12))
+        search_tab = IconButtonRow(icon="\U0001F50D", label_text="Search", bg_color=COLOR_DARK_GREEN, fg_color=[1, 1, 1, 1], radius=dp(10))
+        photo_tab = IconButtonRow(icon="\U0001F4F7", label_text="Photo", bg_color=[0, 0, 0, 0], fg_color=COLOR_MUTED2, radius=dp(10))
+        describe_tab = IconButtonRow(icon="\U0001F4AC", label_text="Describe", bg_color=[0, 0, 0, 0], fg_color=COLOR_MUTED2, radius=dp(10))
 
-        tab_bar = RoundedBox(orientation="horizontal", size_hint_y=None, height=dp(44),
-                             padding=dp(4), spacing=dp(4),
-                             bg_color=hex_color("#EFECE6"), border_color=hex_color("#EFECE6"),
-                             radius=dp(16))
-        tab_bar.add_widget(IconButtonRow(icon="\U0001F50D", label_text="Search",
-                                         bg_color=COLOR_DARK_GREEN, fg_color=[1, 1, 1, 1],
-                                         radius=dp(12)))
-        tab_bar.add_widget(IconButtonRow(icon="\U0001F4F7", label_text="Photo",
-                                         bg_color=[0, 0, 0, 0], fg_color=COLOR_MUTED2,
-                                         radius=dp(12)))
-        tab_bar.add_widget(IconButtonRow(icon="\U0001F4AC", label_text="Describe",
-                                         bg_color=[0, 0, 0, 0], fg_color=COLOR_MUTED2,
-                                         radius=dp(12)))
+        tab_bar.add_widget(search_tab)
+        tab_bar.add_widget(photo_tab)
+        tab_bar.add_widget(describe_tab)
         body.add_widget(tab_bar)
 
-        search_box, search_input = self._labeled_input(
-            "Species", "e.g. monstera, snake plant, cactus...")
+        search_box, search_input = self._labeled_input("", "e.g. fern, moss, cactus...")
         search_input.text = self.species
         body.add_widget(search_box)
 
         for name, icon, tags in QUICK_SPECIES:
-            row = IconButtonRow(
-                icon=icon, label_text=f"{name}   ({tags})",
-                size_hint_y=None, height=dp(52),
-                bg_color=hex_color("#E9EEE6") if self.species == name else hex_color("#F6F5F0"),
-                fg_color=COLOR_DARKEST, radius=dp(16),
+            is_selected = (self.species == name)
+
+            card = SelectableCard(
+                size_hint_y=None, height=dp(64),
+                padding=[dp(14), dp(10)], spacing=dp(12),
+                bg_color=hex_color("#E8EFE6") if is_selected else hex_color("#F5F3ED"),
+                border_color=COLOR_DARK_GREEN if is_selected else hex_color("#F5F3ED"),
+                border_width=1.5 if is_selected else 0,
+                radius=dp(16)
             )
+
+            icon_lbl = EmojiLabel(
+                text=icon,
+                font_size="1sp",
+                size_hint=(None, None), size=(dp(24), dp(24)),
+                pos_hint={"center_y": 0.5}
+            )
+            card.add_widget(icon_lbl)
+
+            text_box = BoxLayout(orientation="vertical", spacing=dp(2))
+            title_lbl = Label(text=name, bold=True, font_size="14sp", color=COLOR_DARKEST, halign="left", valign="bottom")
+            title_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+
+            sub_lbl = Label(text=tags, font_size="11sp", color=COLOR_MUTED, halign="left", valign="top")
+            sub_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+
+            text_box.add_widget(title_lbl)
+            text_box.add_widget(sub_lbl)
+            card.add_widget(text_box)
 
             def make_cb(n=name):
                 def _cb(*_):
@@ -282,15 +290,14 @@ class AddPlantModal(ModalView):
                     self._build_step_1()
                 return _cb
 
-            row.bind(on_release=make_cb())
-            body.add_widget(row)
+            card.bind(on_release=make_cb())
+            body.add_widget(card)
 
         scroll.add_widget(body)
         root.add_widget(scroll)
 
-        footer = BoxLayout(size_hint_y=None, height=dp(70), padding=dp(16))
-        continue_btn = PillButton(text="Continue ->", bg_color=COLOR_DARK_GREEN,
-                                  radius=dp(16))
+        footer = BoxLayout(size_hint_y=None, height=dp(54), padding=[0, dp(8), 0, 0])
+        continue_btn = PillButton(text="Continue ->", bg_color=COLOR_DARK_GREEN if self.species else hex_color("#A8BBA2"), radius=dp(14))
 
         def go_next(*_):
             self.species = search_input.text.strip() or self.species
@@ -303,61 +310,123 @@ class AddPlantModal(ModalView):
 
         self.add_widget(root)
 
-    # ---- step 2: nickname + details -------------------------------------
     def _build_step_2(self):
+        """Step 2: Input nickname, location, notes, and view auto-filled care schedule."""
         self.step = 2
         self.clear_widgets()
-        root = BoxLayout(orientation="vertical")
+
+        root = RoundedBox(orientation="vertical", bg_color=[1, 1, 1, 1], border_color=COLOR_BORDER, radius=dp(20), padding=dp(20))
         root.add_widget(self._header("Plant details", "Step 2 of 2", show_back=True))
 
         scroll = ScrollView(do_scroll_x=False)
-        body = BoxLayout(orientation="vertical", padding=dp(20), spacing=dp(10),
-                         size_hint_y=None)
+        body = BoxLayout(orientation="vertical", spacing=dp(12), size_hint_y=None, padding=[0, dp(10), 0, dp(10)])
         body.bind(minimum_height=body.setter("height"))
 
-        summary = RoundedBox(size_hint_y=None, height=dp(50), padding=dp(10),
-                             bg_color=COLOR_CARD_GREEN, border_color=COLOR_CARD_GREEN,
-                             radius=dp(16))
-        summary.add_widget(IconRow(icon="\U0001F343", text=self.species,
-                                   text_color=COLOR_DARK_GREEN, icon_size="18sp",
-                                   text_size="13sp"))
+        # Top summary banner
+        summary = RoundedBox(orientation="horizontal", size_hint_y=None, height=dp(56),
+                             padding=[dp(14), dp(10)], spacing=dp(12),
+                             bg_color=hex_color("#E9EEE6"), border_color=hex_color("#E9EEE6"),
+                             radius=dp(14))
+
+        icon_lbl = EmojiLabel(
+            text="\U0001F335" if self.species == "Cactus" else "\U0001F33F",
+            font_size="1sp",
+            size_hint=(None, None), size=(dp(24), dp(24)),
+            pos_hint={"center_y": 0.5}
+        )
+        summary.add_widget(icon_lbl)
+
+        summary_text = BoxLayout(orientation="vertical", spacing=dp(2))
+        title_lbl = Label(text=self.species, bold=True, font_size="14sp",
+                          color=COLOR_DARK_GREEN, halign="left", valign="bottom")
+        title_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+
+        sub_lbl = Label(text="Care data auto-filled \u00b7 easy", font_size="11sp",
+                        color=COLOR_MUTED2, halign="left", valign="top")
+        sub_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+
+        summary_text.add_widget(title_lbl)
+        summary_text.add_widget(sub_lbl)
+        summary.add_widget(summary_text)
         body.add_widget(summary)
 
-        nick_box, nick_input = self._labeled_input("Nickname *", self.species)
+        # Photo placeholder box
+        photo_box = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(100), spacing=dp(4))
+        photo_lbl = Label(text="Plant photo", font_size="11sp", bold=True, color=COLOR_MUTED2, size_hint_y=None, height=dp(16), halign="left")
+        photo_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        photo_box.add_widget(photo_lbl)
+
+        photo_area = RoundedBox(
+            bg_color=hex_color("#E8EFE6"), border_color=hex_color("#E8EFE6"),
+            radius=dp(14), size_hint_y=None, height=dp(80)
+        )
+        add_photo_btn = PillButton(
+            text="+ Add photo", bg_color=[0, 0, 0, 0], fg_color=COLOR_DARK_GREEN,
+            font_size="12sp"
+        )
+        photo_area.add_widget(add_photo_btn)
+        photo_box.add_widget(photo_area)
+        body.add_widget(photo_box)
+
+        # Text inputs
+        nick_box, nick_input = self._labeled_input("Nickname *", "e.g. Big Leaf, Monty, Corner Plant")
         nick_input.text = self.species
         self.nickname_input = nick_input
         body.add_widget(nick_box)
 
-        loc_box, loc_input = self._labeled_input(
-            "Location in home", "e.g. Living room window, Bedroom shelf")
+        loc_box, loc_input = self._labeled_input("Location in home", "e.g. Living room window, Bedroom shelf")
         self.location_input = loc_input
         body.add_widget(loc_box)
 
-        schedule = RoundedBox(orientation="vertical", size_hint_y=None, height=dp(96),
-                              padding=dp(12), bg_color=hex_color("#F6F5F0"),
-                              border_color=hex_color("#F6F5F0"), radius=dp(16))
-        schedule.add_widget(Label(text="Auto-filled care schedule", bold=True,
-                                  font_size="11sp", color=COLOR_DARKEST, halign="left"))
-        for icon, name, freq in [
+        # Care schedule information panel
+        schedule = RoundedBox(orientation="vertical", size_hint_y=None, height=dp(105),
+                              padding=dp(12), spacing=dp(6),
+                              bg_color=hex_color("#F5F3ED"), border_color=hex_color("#F5F3ED"),
+                              radius=dp(14))
+
+        sched_title = Label(text="Auto-filled care schedule", bold=True, font_size="11sp",
+                            color=COLOR_DARKEST, halign="left", size_hint_y=None, height=dp(16))
+        sched_title.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        schedule.add_widget(sched_title)
+
+        schedule_items = [
             ("\U0001F4A7", "Watering", "Every 7 days"),
-            ("\U0001F33F", "Fertilizing", "Every 60 days"),
-            ("\U0001FAB4", "Repotting", "Every 18 months"),
-        ]:
+            ("\U0001F33F", "Fertilizing", "Every 30 days"),
+            ("\U0001FAB4", "Repotting", "Every 12 months"),
+        ]
+
+        for icon, name, freq in schedule_items:
             row = BoxLayout(size_hint_y=None, height=dp(20))
-            row.add_widget(IconRow(icon=icon, text=name, text_color=COLOR_MUTED2,
-                                   bold=False, icon_size="12sp", text_size="10sp",
-                                   icon_width=dp(20)))
-            row.add_widget(Label(text=freq, font_size="10sp", bold=True,
-                                 color=COLOR_DARKEST, halign="right"))
+
+            item_box = BoxLayout(orientation="horizontal", spacing=dp(6))
+            ic_lbl = EmojiLabel(
+                text=icon,
+                font_size="1sp",
+                size_hint=(None, None), size=(dp(16), dp(16)),
+                pos_hint={"center_y": 0.5}
+            )
+            nm_lbl = Label(text=name, font_size="11sp", color=COLOR_MUTED2, halign="left", valign="middle")
+            nm_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+            item_box.add_widget(ic_lbl)
+            item_box.add_widget(nm_lbl)
+
+            row.add_widget(item_box)
+
+            freq_lbl = Label(text=freq, font_size="11sp", color=COLOR_DARKEST, halign="right", valign="middle")
+            freq_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+            row.add_widget(freq_lbl)
             schedule.add_widget(row)
+
         body.add_widget(schedule)
+
+        notes_box, notes_input = self._labeled_input("Notes (optional)", "Any quirks about this specific plant?", multiline=True)
+        body.add_widget(notes_box)
 
         scroll.add_widget(body)
         root.add_widget(scroll)
 
-        footer = BoxLayout(size_hint_y=None, height=dp(70), padding=dp(16))
-        self.save_btn = PillButton(text="Add to my collection", bg_color=COLOR_DARK_GREEN,
-                                   radius=dp(16))
+        footer = BoxLayout(size_hint_y=None, height=dp(54), padding=[0, dp(8), 0, 0])
+        self.save_btn = PillButton(text="Add to my collection", bg_color=COLOR_DARK_GREEN, radius=dp(14))
         self.save_btn.bind(on_release=lambda *_: self._save())
         footer.add_widget(self.save_btn)
         root.add_widget(footer)
@@ -365,6 +434,7 @@ class AddPlantModal(ModalView):
         self.add_widget(root)
 
     def _save(self):
+        """Sends new plant payload to the API server in a background thread."""
         nickname = self.nickname_input.text.strip()
         if not nickname:
             return
@@ -377,9 +447,10 @@ class AddPlantModal(ModalView):
         def worker():
             try:
                 plant = api.create_plant(nickname, species, location)
-                Clock.schedule_once(lambda dt: self._on_success(plant))
+                Clock.schedule_once(lambda dt, p=plant: self._on_success(p))
             except Exception as exc:
-                Clock.schedule_once(lambda dt: self._on_error(exc))
+                # Capture exc object in lambda parameter err to avoid NameError
+                Clock.schedule_once(lambda dt, err=exc: self._on_error(err))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -391,43 +462,36 @@ class AddPlantModal(ModalView):
     def _on_error(self, exc):
         self.save_btn.text = "Add to my collection"
         self.save_btn.disabled = False
-        ErrorModal("Could not save plant. Make sure your backend server is running!").open()
+        ErrorModal("Could not save plant.").open()
 
-
-# ---------------------------------------------------------------------------
-# Delete button
-# ---------------------------------------------------------------------------
 
 class DeleteConfirmModal(ModalView):
+    """Confirmation modal shown before removing a plant."""
     def __init__(self, plant_id, plant_name, on_deleted, **kwargs):
         width = min(dp(360), Window.width * 0.9)
         height = min(dp(280), Window.height * 0.85)
-        super().__init__(size_hint=(None, None), size=(width, height),
-                         auto_dismiss=False, **kwargs)
+        super().__init__(size_hint=(None, None), size=(width, height), auto_dismiss=False, **kwargs)
         self.plant_id = plant_id
         self.on_deleted = on_deleted
 
-        root = RoundedBox(orientation="vertical", padding=dp(20), spacing=dp(12),
-                          bg_color=[1, 1, 1, 1], border_color=COLOR_BORDER, radius=dp(20))
-        root.add_widget(Label(text="\U0001F5D1", font_name=EMOJI_FONT, font_size="26sp",
-                              color=COLOR_RED, size_hint_y=None, height=dp(40)))
-        root.add_widget(Label(text=f"Remove {plant_name}?", bold=True, font_size="16sp",
-                              color=COLOR_DARKEST, size_hint_y=None, height=dp(28)))
-        root.add_widget(Label(
-            text="Are you sure you want to delete this plant? This cannot be undone.",
-            font_size="11sp", color=COLOR_MUTED2, size_hint_y=None, height=dp(50)))
+        root = RoundedBox(orientation="vertical", padding=dp(20), spacing=dp(12), bg_color=[1, 1, 1, 1], border_color=COLOR_BORDER, radius=dp(20))
+        root.add_widget(EmojiLabel(
+            text="\U0001F5D1",
+            font_size="16sp",
+            size_hint=(None, None), size=(dp(24), dp(24)),
+            pos_hint={"center_x": 0.5}
+        ))
+        root.add_widget(Label(text=f"Remove {plant_name}?", bold=True, font_size="16sp", color=COLOR_DARKEST, size_hint_y=None, height=dp(28)))
+        root.add_widget(Label(text="Are you sure you want to delete this plant?", font_size="11sp", color=COLOR_MUTED2, size_hint_y=None, height=dp(50)))
 
         btn_row = BoxLayout(spacing=dp(10), size_hint_y=None, height=dp(46))
-        cancel_btn = PillButton(text="Cancel", bg_color=hex_color("#F6F5F0"),
-                                fg_color=COLOR_MUTED2, radius=dp(16))
+        cancel_btn = PillButton(text="Cancel", bg_color=hex_color("#F6F5F0"), fg_color=COLOR_MUTED2, radius=dp(16))
         cancel_btn.bind(on_release=lambda *_: self.dismiss())
-        self.delete_btn = PillButton(text="Delete Plant", bg_color=COLOR_RED,
-                                     radius=dp(16))
+        self.delete_btn = PillButton(text="Delete Plant", bg_color=COLOR_RED, radius=dp(16))
         self.delete_btn.bind(on_release=lambda *_: self._confirm())
         btn_row.add_widget(cancel_btn)
         btn_row.add_widget(self.delete_btn)
         root.add_widget(btn_row)
-
         self.add_widget(root)
 
     def _confirm(self):
@@ -439,7 +503,7 @@ class DeleteConfirmModal(ModalView):
                 api.delete_plant(self.plant_id)
                 Clock.schedule_once(lambda dt: self._on_success())
             except Exception as exc:
-                Clock.schedule_once(lambda dt: self._on_error(exc))
+                Clock.schedule_once(lambda dt, err=exc: self._on_error(err))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -451,40 +515,64 @@ class DeleteConfirmModal(ModalView):
     def _on_error(self, exc):
         self.delete_btn.text = "Delete Plant"
         self.delete_btn.disabled = False
-        ErrorModal("Could not delete plant. Make sure your backend server is running!").open()
+        ErrorModal("Could not delete plant.").open()
 
 
 class ErrorModal(ModalView):
+    """Generic error alert dialog modal."""
     def __init__(self, message, **kwargs):
         width = min(dp(340), Window.width * 0.9)
         height = min(dp(180), Window.height * 0.85)
         super().__init__(size_hint=(None, None), size=(width, height), **kwargs)
-        box = RoundedBox(orientation="vertical", padding=dp(16), spacing=dp(10),
-                         bg_color=[1, 1, 1, 1], border_color=COLOR_BORDER, radius=dp(18))
+        box = RoundedBox(orientation="vertical", padding=dp(16), spacing=dp(10), bg_color=[1, 1, 1, 1], border_color=COLOR_BORDER, radius=dp(18))
         lbl = Label(text=message, color=COLOR_DARKEST, font_size="12sp")
         box.add_widget(lbl)
-        ok_btn = PillButton(text="OK", bg_color=COLOR_DARK_GREEN, radius=dp(14),
-                            size_hint_y=None, height=dp(40))
+        ok_btn = PillButton(text="OK", bg_color=COLOR_DARK_GREEN, radius=dp(14), size_hint_y=None, height=dp(40))
         ok_btn.bind(on_release=lambda *_: self.dismiss())
         box.add_widget(ok_btn)
         self.add_widget(box)
 
 
-# ---------------------------------------------------------------------------
-# Main App
-# ---------------------------------------------------------------------------
-
 class SproutApp(App):
+    """Main App Controller Class."""
     def build(self):
         self.title = "Sprout"
         self.plants = []
+        self.active_tab = "dashboard"
+        self.active_symptom = None
         self.root_layout = RootLayout()
-        self._render_empty_state()
+        self._update_nav_styles()
+        self.render_empty_state()
         self._fetch_plants()
         return self.root_layout
 
-    # ---- data loading ---------------------------------------------------
+    def switch_tab(self, tab_name):
+        """Switches current navigation tab and updates view content."""
+        self.active_tab = tab_name
+        self.active_symptom = None
+        self._update_nav_styles()
+        self.render_current_tab()
+
+    def _update_nav_styles(self):
+        """Updates active/inactive button colors on the left sidebar."""
+        nav_ids = {
+            "dashboard": "nav_dashboard",
+            "plants": "nav_plants",
+            "schedule": "nav_schedule",
+            "symptoms": "nav_symptoms",
+        }
+        for name, nav_id in nav_ids.items():
+            if nav_id in self.root_layout.ids:
+                widget = self.root_layout.ids[nav_id]
+                if name == self.active_tab:
+                    widget.bg_color = COLOR_DARK_GREEN
+                    widget.fg_color = [1, 1, 1, 1]
+                else:
+                    widget.bg_color = [0, 0, 0, 0]
+                    widget.fg_color = COLOR_DARKEST
+
     def _fetch_plants(self):
+        """Asynchronously fetches plants list from backend API."""
         def worker():
             try:
                 plants = api.fetch_plants()
@@ -496,26 +584,23 @@ class SproutApp(App):
 
     def _on_plants_loaded(self, plants):
         self.plants = plants
-        self._render_dashboard()
+        self.render_current_tab()
 
-    # ---- add plant flow ---------------------------------------------------
     def open_add_modal(self):
         AddPlantModal(on_saved=self._on_plant_added).open()
 
     def _on_plant_added(self, plant):
         self.plants.append(plant)
-        self._render_dashboard()
+        self.render_current_tab()
 
-    # ---- water / delete actions --------------------------------------------
     def water_plant(self, plant_id):
+        """Triggers watering event API call for a specific plant."""
         def worker():
             try:
                 updated = api.water_plant(plant_id)
                 Clock.schedule_once(lambda dt: self._on_plant_watered(updated))
-            except Exception as exc:
-                Clock.schedule_once(lambda dt: ErrorModal(
-                    "Could not water plant. Make sure your backend server is running!"
-                ).open())
+            except Exception:
+                Clock.schedule_once(lambda dt: ErrorModal("Could not water plant.").open())
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -524,121 +609,82 @@ class SproutApp(App):
             if p.get("id") == updated.get("id"):
                 self.plants[i] = updated
                 break
-        self._render_dashboard()
+        self.render_current_tab()
 
     def open_delete_modal(self, plant_id, plant_name):
         DeleteConfirmModal(plant_id, plant_name, on_deleted=self._on_plant_deleted).open()
 
     def _on_plant_deleted(self, plant_id):
         self.plants = [p for p in self.plants if p.get("id") != plant_id]
-        if self.plants:
-            self._render_dashboard()
-        else:
-            self._render_empty_state()
+        self.render_current_tab()
 
-    # ---- rendering ---------------------------------------------------------
-    @staticmethod
-    def _water_label(days):
-        if days < 0:
-            return "Overdue"
-        if days == 0:
-            return "Due today"
-        return f"In {days}d"
+    def render_current_tab(self):
+        """Delegates rendering to the appropriate view module."""
+        self.root_layout.plant_count_label = f"{len(self.plants)} plants in collection"
+        if self.active_tab == "dashboard":
+            render_dashboard(self)
+        elif self.active_tab == "plants":
+            render_my_plants(self)
+        elif self.active_tab == "schedule":
+            render_schedule(self)
+        elif self.active_tab == "symptoms":
+            if self.active_symptom:
+                render_symptom_detail(self, self.active_symptom)
+            else:
+                render_symptom_guide(self)
 
-    def _render_empty_state(self):
+    def render_empty_state(self):
+        """Renders the empty welcome layout when 0 plants exist."""
         container = self.root_layout.ids.main_content
         container.clear_widgets()
-        self.root_layout.plant_count_label = "0 plants in collection"
 
-        wrapper = BoxLayout(orientation="vertical", spacing=dp(12),
-                            size_hint_y=None, height=dp(500))
-        wrapper.add_widget(Label(text="\U0001F331", font_name=EMOJI_FONT, font_size="46sp",
-                                 size_hint_y=None, height=dp(70)))
-        wrapper.add_widget(Label(text="Welcome to Sprout", bold=True, font_size="24sp",
-                                 color=COLOR_DARKEST, size_hint_y=None, height=dp(36)))
+        wrapper = BoxLayout(
+            orientation="vertical",
+            spacing=dp(16),
+            size_hint_y=None,
+            height=dp(380),
+            padding=[dp(20), dp(80), dp(20), 0]
+        )
+        wrapper.add_widget(EmojiLabel(
+            text="\U0001F331",
+            font_size="28sp",
+            size_hint=(None, None), size=(dp(36), dp(36)),
+            pos_hint={"center_x": 0.5}
+        ))
         wrapper.add_widget(Label(
-            text="Add your first plant to get started. Sprout will build your "
-                 "care schedule and remind you what to do and when.",
-            font_size="12sp", color=COLOR_MUTED2, size_hint_y=None, height=dp(50)))
-        add_btn = PillButton(text="Add your first plant", bg_color=COLOR_DARK_GREEN,
-                             radius=dp(16), size_hint=(None, None),
-                             size=(dp(220), dp(48)), pos_hint={"center_x": 0.5})
+            text="Welcome to Sprout",
+            bold=True,
+            font_size="28sp",
+            color=COLOR_DARKEST,
+            size_hint_y=None,
+            height=dp(36),
+            halign="center"
+        ))
+        desc_lbl = Label(
+            text="Add your first plant to get started. Sprout will build your\ncare schedule and remind you what to do and when.",
+            font_size="14sp",
+            color=COLOR_MUTED2,
+            size_hint_y=None,
+            height=dp(44),
+            halign="center",
+            valign="middle"
+        )
+        desc_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        wrapper.add_widget(desc_lbl)
+
+        add_btn = PillButton(
+            text="Add your first plant",
+            bg_color=COLOR_DARK_GREEN,
+            fg_color=[1, 1, 1, 1],
+            radius=dp(14),
+            size_hint=(None, None),
+            size=(dp(190), dp(46)),
+            pos_hint={"center_x": 0.5}
+        )
         add_btn.bind(on_release=lambda *_: self.open_add_modal())
         wrapper.add_widget(add_btn)
+
         container.add_widget(wrapper)
-
-    def _render_dashboard(self):
-        container = self.root_layout.ids.main_content
-        container.clear_widgets()
-        self.root_layout.plant_count_label = (
-            f"{len(self.plants)} {'plant' if len(self.plants) == 1 else 'plants'} in collection"
-        )
-
-        if not self.plants:
-            self._render_empty_state()
-            return
-
-        # header
-        header = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(60))
-        header.add_widget(Label(text="Dashboard", bold=True, font_size="30sp",
-                                color=COLOR_DARKEST, halign="left",
-                                size_hint_y=None, height=dp(40)))
-        header.add_widget(Label(text="Wednesday, July 22", font_size="12sp",
-                                color=COLOR_MUTED, halign="left",
-                                size_hint_y=None, height=dp(18)))
-        container.add_widget(header)
-
-        # stat cards
-        overdue = sum(1 for p in self.plants if p.get("daysUntilWater", 0) < 0)
-        due_today = sum(1 for p in self.plants if p.get("daysUntilWater", 0) == 0)
-
-        stats_row = BoxLayout(size_hint_y=None, height=dp(120), spacing=dp(16))
-        stats_row.add_widget(StatCard(icon="\U0001FAB4", value=str(len(self.plants)),
-                                      label_text="Plants"))
-        stats_row.add_widget(StatCard(icon="\u26A0\uFE0F", value=str(overdue),
-                                      label_text="Overdue tasks"))
-        stats_row.add_widget(StatCard(icon="\U0001F4CB", value=str(due_today),
-                                      label_text="Due today"))
-        container.add_widget(stats_row)
-
-        # banner
-        banner = RoundedBox(orientation="horizontal", size_hint_y=None, height=dp(70),
-                            padding=dp(16), spacing=dp(12), bg_color=hex_color("#E8EFE6"),
-                            border_color=hex_color("#E8EFE6"), radius=dp(16))
-        banner.add_widget(Label(text="\u2728", font_name=EMOJI_FONT, font_size="20sp",
-                                size_hint_x=None, width=dp(30)))
-        banner_text = BoxLayout(orientation="vertical")
-        banner_text.add_widget(Label(text="All caught up!", bold=True, font_size="13sp",
-                                     color=COLOR_DARKEST, halign="left"))
-        banner_text.add_widget(Label(
-            text="No tasks due today. Check the Schedule to see what's coming next.",
-            font_size="11sp", color=COLOR_MUTED2, halign="left"))
-        banner.add_widget(banner_text)
-        container.add_widget(banner)
-
-        # upcoming watering list
-        container.add_widget(Label(text="Upcoming watering", bold=True, font_size="18sp",
-                                   color=COLOR_DARKEST, halign="left", size_hint_y=None,
-                                   height=dp(30)))
-
-        list_box = BoxLayout(orientation="vertical", spacing=dp(10),
-                             size_hint_y=None)
-        list_box.bind(minimum_height=list_box.setter("height"))
-
-        for plant in self.plants:
-            name = plant.get("name") or plant.get("nickname", "")
-            row = PlantRow(
-                plant_id=plant.get("id"),
-                plant_name=name,
-                subtitle=plant.get("location") or plant.get("species") or "Unspecified",
-                initials=(name[:4] if name else ""),
-                due_label=self._water_label(plant.get("daysUntilWater", 0)),
-            )
-            row.on_water_cb = self.water_plant
-            row.on_delete_cb = self.open_delete_modal
-            list_box.add_widget(row)
-
-        container.add_widget(list_box)
 
 
 if __name__ == "__main__":
