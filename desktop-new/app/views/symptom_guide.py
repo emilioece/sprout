@@ -5,6 +5,7 @@
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
+from kivy.uix.modalview import ModalView
 from kivy.metrics import dp
 from kivy.utils import get_color_from_hex as hex_color
 
@@ -71,12 +72,13 @@ SYMPTOMS_DATA = [
     },
 ]
 
+
 def render_symptom_guide(app):
     """Renders the symptom list view with search box."""
     container = app.root_layout.ids.main_content
     container.clear_widgets()
 
-    from main import SymptomRow
+    from main import SymptomRow, PillButton
 
     # Header
     header = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(60))
@@ -92,6 +94,15 @@ def render_symptom_guide(app):
         padding=(dp(16), dp(12)), size_hint_y=None, height=dp(44)
     )
     container.add_widget(ti)
+
+    # AI Health Check button (Gemini wiring TBD by teammate)
+    health_btn = PillButton(
+        text="\U0001F4F8  Health Check (AI)",
+        size_hint_y=None, height=dp(48),
+        bg_color=COLOR_DARK_GREEN, fg_color=[1, 1, 1, 1],
+    )
+    health_btn.bind(on_release=lambda *_: _open_health_check(app))
+    container.add_widget(health_btn)
 
     # List of symptom cards
     list_box = BoxLayout(orientation="vertical", spacing=dp(10), size_hint_y=None)
@@ -114,6 +125,7 @@ def render_symptom_guide(app):
         list_box.add_widget(row)
 
     container.add_widget(list_box)
+
 
 def render_symptom_detail(app, symptom):
     """Renders the detailed cause & resolution view for a selected symptom."""
@@ -143,3 +155,59 @@ def render_symptom_detail(app, symptom):
         card.add_widget(Label(text=fix_title, bold=True, font_size="13sp", color=COLOR_DARK_GREEN, halign="left"))
         card.add_widget(Label(text=fix_desc, font_size="11sp", color=COLOR_MUTED2, halign="left"))
         container.add_widget(card)
+
+
+def _open_health_check(app):
+    """Let the user pick a photo. AI diagnosis is wired in later."""
+    from kivy.uix.filechooser import FileChooserIconView
+    from main import PillButton
+
+    picker = ModalView(size_hint=(0.9, 0.9))
+    box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(10))
+    box.add_widget(Label(text="Pick a photo of your plant", bold=True,
+                         font_size="16sp", color=COLOR_DARKEST,
+                         size_hint_y=None, height=dp(30)))
+
+    chooser = FileChooserIconView(filters=["*.jpg", "*.jpeg", "*.png"])
+    box.add_widget(chooser)
+
+    btn_row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
+    cancel = PillButton(text="Cancel", bg_color=hex_color("#F6F5F0"),
+                        fg_color=COLOR_MUTED2)
+    cancel.bind(on_release=lambda *_: picker.dismiss())
+    analyze = PillButton(text="Analyze", bg_color=COLOR_DARK_GREEN)
+
+    def do_analyze(*_):
+        if not chooser.selection:
+            return
+        path = chooser.selection[0]
+        picker.dismiss()
+        _show_result(app, path)
+
+    analyze.bind(on_release=do_analyze)
+    btn_row.add_widget(cancel)
+    btn_row.add_widget(analyze)
+    box.add_widget(btn_row)
+    picker.add_widget(box)
+    picker.open()
+
+
+def _show_result(app, image_path):
+    """Placeholder result. Teammate will replace this with the Gemini call."""
+    from main import RoundedBox, PillButton
+
+    modal = ModalView(size_hint=(None, None), size=(dp(360), dp(220)))
+    box = RoundedBox(orientation="vertical", padding=dp(20), spacing=dp(12),
+                     bg_color=[1, 1, 1, 1], border_color=COLOR_BORDER)
+    box.add_widget(Label(text="\U0001F33F  Health Check", bold=True,
+                         font_size="18sp", color=COLOR_DARKEST,
+                         size_hint_y=None, height=dp(30)))
+    box.add_widget(Label(
+        text="Photo received! AI diagnosis is coming soon.",
+        font_size="13sp", color=COLOR_MUTED2, halign="center"))
+
+    ok = PillButton(text="OK", bg_color=COLOR_DARK_GREEN, size_hint_y=None, height=dp(44))
+    ok.bind(on_release=lambda *_: modal.dismiss())
+    box.add_widget(ok)
+    modal.add_widget(box)
+    modal.open()
