@@ -1,5 +1,6 @@
 #:import hex_color kivy.utils.get_color_from_hex
 #:import EMOJI_FONT main.EMOJI_FONT
+#:import theme theme.theme
 
 # ===========================================================================
 # Reusable Styled Custom Widgets
@@ -108,8 +109,8 @@
     padding: dp(18)
     size_hint_y: None
     height: dp(120)
-    bg_color: 1, 1, 1, 1
-    border_color: hex_color("#E5E3DC")
+    bg_color: theme.surface
+    border_color: theme.border
     radius: dp(16)
 
     Label:
@@ -118,7 +119,7 @@
         font_size: "1sp"
         size_hint_y: None
         height: dp(30)
-        color: 0, 0, 0, 1
+        color: theme.text
 
     Widget:
 
@@ -126,7 +127,7 @@
         text: root.value
         font_size: "24sp"
         bold: True
-        color: hex_color("#284E36")
+        color: theme.dark_green
         size_hint_y: None
         height: dp(30)
         halign: "left"
@@ -136,7 +137,7 @@
         text: root.label_text
         font_size: "11sp"
         bold: True
-        color: hex_color("#788177")
+        color: theme.muted
         size_hint_y: None
         height: dp(16)
         halign: "left"
@@ -152,8 +153,8 @@
     height: dp(72)
     padding: dp(14)
     spacing: dp(12)
-    bg_color: 1, 1, 1, 1
-    border_color: hex_color("#E5E3DC")
+    bg_color: theme.surface
+    border_color: theme.border
     radius: dp(16)
 
     # Initial avatar circle
@@ -162,14 +163,14 @@
         width: dp(44)
         canvas.before:
             Color:
-                rgba: hex_color("#E8EFE6")
+                rgba: theme.accent_soft
             Ellipse:
                 pos: self.pos
                 size: self.size
         Label:
             text: root.initials
             bold: True
-            color: hex_color("#284E36")
+            color: theme.dark_green
             font_size: "12sp"
 
     # Plant name and details label stack
@@ -178,14 +179,14 @@
         Label:
             text: root.plant_name
             bold: True
-            color: hex_color("#1E2A20")
+            color: theme.text
             font_size: "14sp"
             halign: "left"
             valign: "bottom"
             text_size: self.size
         Label:
             text: root.subtitle
-            color: hex_color("#788177")
+            color: theme.muted
             font_size: "11sp"
             halign: "left"
             valign: "top"
@@ -205,7 +206,7 @@
         text: root.due_label
         size_hint_x: None
         width: dp(70)
-        color: hex_color("#788177")
+        color: theme.muted
         font_size: "11sp"
         halign: "right"
         valign: "middle"
@@ -216,7 +217,7 @@
         text: "\U0001F5D1"
         font_name: EMOJI_FONT
         bg_color: 0, 0, 0, 0
-        fg_color: hex_color("#9A9E97")
+        fg_color: theme.hint
         size: dp(34), dp(34)
         radius: dp(10)
         on_release: root.on_delete()
@@ -230,8 +231,8 @@
     height: dp(72)
     padding: dp(16)
     spacing: dp(14)
-    bg_color: 1, 1, 1, 1
-    border_color: hex_color("#E5E3DC")
+    bg_color: theme.surface
+    border_color: theme.border
     radius: dp(16)
 
     Label:
@@ -247,14 +248,14 @@
             text: root.title
             bold: True
             font_size: "14sp"
-            color: hex_color("#1E2A20")
+            color: theme.text
             halign: "left"
             valign: "bottom"
             text_size: self.size
         Label:
             text: root.subtitle
             font_size: "11sp"
-            color: hex_color("#788177")
+            color: theme.muted
             halign: "left"
             valign: "top"
             text_size: self.size
@@ -285,7 +286,7 @@
     orientation: "horizontal"
     canvas.before:
         Color:
-            rgba: hex_color("#F3F1EA")
+            rgba: theme.bg
         Rectangle:
             pos: self.pos
             size: self.size
@@ -299,12 +300,12 @@
         spacing: dp(10)
         canvas.before:
             Color:
-                rgba: 1, 1, 1, 1
+                rgba: theme.surface
             Rectangle:
                 pos: self.pos
                 size: self.size
             Color:
-                rgba: hex_color("#E5E3DC")
+                rgba: theme.border
             Line:
                 points: [self.right, self.y, self.right, self.top]
                 width: 1
@@ -329,13 +330,13 @@
                     text: "Sprout"
                     bold: True
                     font_size: "20sp"
-                    color: hex_color("#1E2A20")
+                    color: theme.text
                     halign: "left"
                     text_size: self.size
             Label:
                 text: root.plant_count_label
                 font_size: "11sp"
-                color: hex_color("#788177")
+                color: theme.muted
                 halign: "left"
                 text_size: self.size
                 size_hint_y: None
@@ -368,14 +369,25 @@
 
         Widget:
 
+        # Dark mode toggle button
+        PillButton:
+            id: dark_mode_btn
+            text: app.dark_mode_label
+            size_hint_y: None
+            height: dp(44)
+            bg_color: theme.surface_alt
+            fg_color: theme.text
+            radius: dp(12)
+            on_release: app.toggle_dark_mode()
+
         # Tip Box at bottom of sidebar
         RoundedBox:
             orientation: "vertical"
             size_hint_y: None
             height: dp(84)
             padding: dp(12)
-            bg_color: hex_color("#E9EEE6")
-            border_color: hex_color("#E9EEE6")
+            bg_color: theme.accent_soft
+            border_color: theme.accent_soft
             radius: dp(16)
             BoxLayout:
                 size_hint_y: None
@@ -391,13 +403,13 @@
                     text: "Tip for beginners"
                     bold: True
                     font_size: "11sp"
-                    color: hex_color("#284E36")
+                    color: theme.dark_green
                     halign: "left"
                     text_size: self.size
             Label:
                 text: "Check the Dashboard daily -- it shows exactly what needs attention today."
                 font_size: "10sp"
-                color: hex_color("#616C60")
+                color: theme.muted2
                 halign: "left"
                 valign: "top"
                 text_size: self.size
@@ -407,7 +419,7 @@
             text: "+  Add Plant"
             size_hint_y: None
             height: dp(48)
-            bg_color: hex_color("#284E36")
+            bg_color: theme.dark_green
             radius: dp(14)
             on_release: app.open_add_modal()
 

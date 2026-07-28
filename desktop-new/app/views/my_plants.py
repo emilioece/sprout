@@ -9,10 +9,7 @@ from kivy.uix.widget import Widget
 from kivy.metrics import dp
 from kivy.utils import get_color_from_hex as hex_color
 
-COLOR_DARKEST = hex_color("#1E2A20")
-COLOR_MUTED = hex_color("#788177")
-COLOR_DARK_GREEN = hex_color("#284E36")
-COLOR_BORDER = hex_color("#E5E3DC")
+from theme import theme
 
 def render_my_plants(app):
     """Renders the plant collection grid view with search and filter pills."""
@@ -25,12 +22,12 @@ def render_my_plants(app):
     header = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(60))
     header.add_widget(Label(
         text="My Plants", bold=True, font_size="28sp",
-        color=COLOR_DARKEST, halign="left", size_hint_y=None, height=dp(36),
+        color=theme.text, halign="left", size_hint_y=None, height=dp(36),
         text_size=(container.width if container.width > 0 else dp(600), None)
     ))
     header.add_widget(Label(
         text=f"{len(app.plants)} plants growing happily", font_size="13sp",
-        color=COLOR_MUTED, halign="left", size_hint_y=None, height=dp(20),
+        color=theme.muted, halign="left", size_hint_y=None, height=dp(20),
         text_size=(container.width if container.width > 0 else dp(600), None)
     ))
     container.add_widget(header)
@@ -41,10 +38,10 @@ def render_my_plants(app):
         hint_text="Search by name, species, or location...",
         multiline=False,
         background_normal="", background_active="",
-        background_color=hex_color("#FFFFFF"),
-        foreground_color=COLOR_DARKEST,
-        hint_text_color=hex_color("#9A9E97"),
-        cursor_color=COLOR_DARK_GREEN,
+        background_color=theme.surface,
+        foreground_color=theme.text,
+        hint_text_color=theme.hint,
+        cursor_color=theme.dark_green,
         padding=(dp(16), dp(11)),
         size_hint=(1, 1)
     )
@@ -53,17 +50,17 @@ def render_my_plants(app):
 
     # Filter tags row
     pills = BoxLayout(size_hint_y=None, height=dp(34), spacing=dp(10))
-    pills.add_widget(PillButton(text="All plants", bg_color=COLOR_DARK_GREEN, fg_color=[1, 1, 1, 1], radius=dp(17), size_hint_x=None, width=dp(95)))
-    pills.add_widget(PillButton(text="Needs water", bg_color=hex_color("#EBE8DF"), fg_color=COLOR_DARKEST, radius=dp(17), size_hint_x=None, width=dp(115)))
-    pills.add_widget(PillButton(text="Beginner-friendly", bg_color=hex_color("#EBE8DF"), fg_color=COLOR_DARKEST, radius=dp(17), size_hint_x=None, width=dp(140)))
-    pills.add_widget(PillButton(text="Low light", bg_color=hex_color("#EBE8DF"), fg_color=COLOR_DARKEST, radius=dp(17), size_hint_x=None, width=dp(95)))
+    pills.add_widget(PillButton(text="All plants", bg_color=theme.dark_green, fg_color=[1, 1, 1, 1], radius=dp(17), size_hint_x=None, width=dp(95)))
+    pills.add_widget(PillButton(text="Needs water", bg_color=theme.pill_inactive, fg_color=theme.text, radius=dp(17), size_hint_x=None, width=dp(115)))
+    pills.add_widget(PillButton(text="Beginner-friendly", bg_color=theme.pill_inactive, fg_color=theme.text, radius=dp(17), size_hint_x=None, width=dp(140)))
+    pills.add_widget(PillButton(text="Low light", bg_color=theme.pill_inactive, fg_color=theme.text, radius=dp(17), size_hint_x=None, width=dp(95)))
     container.add_widget(pills)
 
     # Horizontal divider line
     divider = Widget(size_hint_y=None, height=dp(1))
     with divider.canvas:
         from kivy.graphics import Color, Rectangle
-        Color(rgba=COLOR_BORDER)
+        Color(rgba=theme.border)
         Rectangle(pos=divider.pos, size=(dp(2000), dp(1)))
     container.add_widget(divider)
 
@@ -76,10 +73,10 @@ def render_my_plants(app):
         ))
         empty_wrapper.add_widget(Label(
             text="No plants yet. Add your first one!", font_size="14sp",
-            color=COLOR_MUTED, size_hint_y=None, height=dp(24)
+            color=theme.muted, size_hint_y=None, height=dp(24)
         ))
         add_btn = PillButton(
-            text="Add your first plant", bg_color=COLOR_DARK_GREEN,
+            text="Add your first plant", bg_color=theme.dark_green,
             fg_color=[1, 1, 1, 1], radius=dp(14),
             size_hint=(None, None), size=(dp(180), dp(44)),
             pos_hint={"center_x": 0.5}
