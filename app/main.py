@@ -14,6 +14,7 @@ from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.text import LabelBase
 from kivy.core.window import Window
+from kivy.animation import Animation
 from kivy.graphics import Color, Rectangle
 from kivy.metrics import dp
 from kivy.properties import ListProperty, NumericProperty, ObjectProperty, StringProperty
@@ -517,6 +518,45 @@ class DeleteConfirmModal(ModalView):
         self.delete_btn.disabled = False
         ErrorModal("Could not delete plant.").open()
 
+class WaterToast(RoundedBox):
+    """Small toast that slides down and fades out after watering a plant."""
+    def __init__(self, message="\U0001F4A7 Watered!", **kwargs):
+        super().__init__(
+            orientation="horizontal",
+            size_hint=(None, None),
+            size=(dp(220), dp(52)),
+            padding=[dp(18), dp(12)],
+            bg_color=COLOR_DARK_GREEN,
+            border_color=COLOR_DARK_GREEN,
+            radius=dp(26),
+            **kwargs
+        )
+        self.opacity = 0
+        self.add_widget(IconRow(
+            icon="\U0001F4A7",
+            text=message,
+            text_color=[1, 1, 1, 1],
+            icon_size="16sp",
+            text_size="13sp",
+            halign="center",
+        ))
+
+        Window.add_widget(self)
+        self.center_x = Window.width / 2
+        target_y = Window.height - dp(90)
+        self.y = target_y - dp(20)
+
+        anim = (
+            Animation(opacity=1, y=target_y, duration=0.25, t="out_cubic")
+            + Animation(duration=1.1)
+            + Animation(opacity=0, y=target_y + dp(15), duration=0.35, t="in_cubic")
+        )
+        anim.bind(on_complete=lambda *a: self._remove())
+        anim.start(self)
+
+    def _remove(self, *args):
+        if self.parent:
+            Window.remove_widget(self)
 
 class ErrorModal(ModalView):
     """Generic error alert dialog modal."""
@@ -595,6 +635,10 @@ class SproutApp(App):
 
     def water_plant(self, plant_id):
         """Triggers watering event API call for a specific plant."""
+        plant = next((p for p in self.plants if p.get("id") == plant_id), None)
+        name = (plant.get("name") or plant.get("nickname", "Plant")) if plant else "Plant"
+        WaterToast(message=f"{name} watered!")
+
         def worker():
             try:
                 updated = api.water_plant(plant_id)
@@ -610,6 +654,7 @@ class SproutApp(App):
                 self.plants[i] = updated
                 break
         self.render_current_tab()
+       
 
     def open_delete_modal(self, plant_id, plant_name):
         DeleteConfirmModal(plant_id, plant_name, on_deleted=self._on_plant_deleted).open()
