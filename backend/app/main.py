@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
 from app import models 
-from app.routers import plants
+from app.routers import plants, users
 
 # Create tables if they don't exist 
 Base.metadata.create_all(bind=engine)
@@ -36,3 +36,4 @@ def root():
 
 # Mount plant routes under /plants
 app.include_router(plants.router)
+app.include_router(users.router)
