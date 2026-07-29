@@ -3,11 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas.users import UserCreate, UserResponse
-from app.security import hash_password
+from app.schemas.users import UserCreate, UserResponse, UserLogin
+from app.security import hash_password, verify_password
 
-router = APIRouter(prefix="/users", tags=["users"])
-
+router = APIRouter(tags=["users"])
 
 @router.post("/register", response_model=UserResponse, status_code=201)
 def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
@@ -24,5 +23,13 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+    return user
+
+@router.post("/login", response_model=UserResponse)
+def login_user(user_in: UserLogin, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == user_in.email).first()
+
+    if not user or not verify_password(user_in.password, user.hashed_password):
+       raise HTTPException(status_code=401, detail="Invalid email or password")
 
     return user
