@@ -519,7 +519,6 @@ class DeleteConfirmModal(ModalView):
         ErrorModal("Could not delete plant.").open()
 
 class WaterToast(RoundedBox):
-    """Small toast that slides down and fades out after watering a plant."""
     def __init__(self, message="\U0001F4A7 Watered!", **kwargs):
         super().__init__(
             orientation="horizontal",
@@ -634,7 +633,6 @@ class SproutApp(App):
         self.render_current_tab()
 
     def water_plant(self, plant_id):
-        """Triggers watering event API call for a specific plant."""
         plant = next((p for p in self.plants if p.get("id") == plant_id), None)
         name = (plant.get("name") or plant.get("nickname", "Plant")) if plant else "Plant"
         WaterToast(message=f"{name} watered!")
