@@ -14,3 +14,8 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# Request model used when logging in
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
