@@ -107,6 +107,27 @@ def water_plant(plant_id):
 
 
 def delete_plant(plant_id):
-    """DELETE /plants/{id} -> None."""
+    #DELETE /plants/{id} -> None."""
     resp = requests.delete(f"{API_BASE_URL}/plants/{plant_id}", timeout=TIMEOUT)
+    return _handle(resp)
+
+def login(email, password):
+    #POST /login -> user data dict or auth token.
+    
+    payload = {
+        "email": email,
+        "password": password
+    }
+    resp = requests.post(f"{API_BASE_URL}/login", json=payload, timeout=TIMEOUT)
+    return _handle(resp)
+
+
+def register(email, password):
+    #POST /register -> newly created user data dict.
+    
+    payload = {
+        "email": email,
+        "password": password
+    }
+    resp = requests.post(f"{API_BASE_URL}/register", json=payload, timeout=TIMEOUT)
     return _handle(resp)
