@@ -1,9 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from dotenv import load_dotenv
+
 from app.database import engine, Base
 from app import models 
 from app.routers import plants
+from app.routers import ai
+
+# Load environment variables (GEMINI_API_KEY, etc.)
+load_dotenv()
 
 # Create tables if they don't exist 
 Base.metadata.create_all(bind=engine)
@@ -36,3 +42,4 @@ def root():
 
 # Mount plant routes under /plants
 app.include_router(plants.router)
+app.include_router(ai.router)
