@@ -86,3 +86,11 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# ---------- kivy-ui in desktop-new ----------
+sprout-env/
+**/sprout-env/
+.kivy/
+desktop-new/dist/
+desktop-new/uploads/
+desktop-new/temp/
