@@ -99,9 +99,7 @@ class SproutApp(App):
         self.render_current_tab()
 
     def water_plant(self, plant_id):
-        plant = next((p for p in self.plants if p.get("id") == plant_id), None)
-        name = (plant.get("name") or plant.get("nickname", "Plant")) if plant else "Plant"
-        WaterToast(message=f"{name} watered!")
+
 
         def worker():
             try:
@@ -117,6 +115,8 @@ class SproutApp(App):
             if p.get("id") == updated.get("id"):
                 self.plants[i] = updated
                 break
+        name = updated.get("name") or updated.get("nickname", "Plant")
+        WaterToast(message=f"{name} watered!")
         self.render_current_tab()
 
     def open_delete_modal(self, plant_id, plant_name):
