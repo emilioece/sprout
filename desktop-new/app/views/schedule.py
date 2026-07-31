@@ -3,6 +3,7 @@
 # ===========================================================================
 
 import calendar
+from components.widgets import RoundedBox, PillButton
 from datetime import date, timedelta
 
 from kivy.uix.boxlayout import BoxLayout
@@ -57,7 +58,6 @@ def render_schedule(app):
     container = app.root_layout.ids.main_content
     container.clear_widgets()
 
-    from main import RoundedBox, PillButton
 
     year = _view["year"]
     month = _view["month"]

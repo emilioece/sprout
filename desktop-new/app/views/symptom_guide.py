@@ -2,6 +2,8 @@
 # Symptom Guide Page View
 # ===========================================================================
 
+from components.widgets import SymptomRow, PillButton, RoundedBox
+from components.utils import EMOJI_FONT
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
@@ -73,7 +75,6 @@ def render_symptom_guide(app):
     container = app.root_layout.ids.main_content
     container.clear_widgets()
 
-    from main import SymptomRow, PillButton
 
     # Header
     header = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(60))
@@ -127,7 +128,6 @@ def render_symptom_detail(app, symptom):
     container = app.root_layout.ids.main_content
     container.clear_widgets()
 
-    from main import RoundedBox, EMOJI_FONT
 
     # Selected symptom header
     header = BoxLayout(size_hint_y=None, height=dp(50), spacing=dp(10))
@@ -155,7 +155,6 @@ def render_symptom_detail(app, symptom):
 def _open_health_check(app):
     """Let the user pick a photo. AI diagnosis is wired in later."""
     from kivy.uix.filechooser import FileChooserIconView
-    from main import RoundedBox, PillButton
 
     picker = ModalView(size_hint=(0.9, 0.9))
     box = RoundedBox(orientation="vertical", spacing=dp(10), padding=dp(10),

@@ -2,6 +2,7 @@
 # Dashboard Page View
 # ===========================================================================
 
+from components.widgets import StatCard, PlantRow
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.metrics import dp
@@ -30,7 +31,6 @@ def render_dashboard(app):
     ))
     container.add_widget(header)
 
-    from main import StatCard, PlantRow
 
     # Calculate statistics based on plant care dates
     overdue = sum(1 for p in app.plants if p.get("daysUntilWater", 0) < 0)

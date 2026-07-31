@@ -2,6 +2,7 @@
 # My Plants Page View
 # ===========================================================================
 
+
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
@@ -10,13 +11,13 @@ from kivy.metrics import dp
 from kivy.utils import get_color_from_hex as hex_color
 
 from theme import theme
+from components.widgets import PillButton, PlantRow
+from components.utils import EMOJI_FONT
 
 def render_my_plants(app):
     """Renders the plant collection grid view with search and filter pills."""
     container = app.root_layout.ids.main_content
     container.clear_widgets()
-
-    from main import PillButton, EMOJI_FONT
 
     # Header section
     header = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(60))
