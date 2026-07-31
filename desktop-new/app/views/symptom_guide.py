@@ -2,6 +2,8 @@
 # Symptom Guide Page View
 # ===========================================================================
 
+from components.widgets import SymptomRow, PillButton, RoundedBox
+from components.utils import EMOJI_FONT
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
@@ -9,14 +11,8 @@ from kivy.uix.modalview import ModalView
 from kivy.metrics import dp
 from kivy.utils import get_color_from_hex as hex_color
 
-COLOR_DARKEST = hex_color("#1E2A20")
-COLOR_MUTED = hex_color("#788177")
-COLOR_MUTED2 = hex_color("#616C60")
-COLOR_BORDER = hex_color("#E5E3DC")
-COLOR_CARD_GREEN = hex_color("#E9EEE6")
-COLOR_DARK_GREEN = hex_color("#284E36")
+from theme import theme
 
-# Mock database of plant diagnostic symptoms, causes, and step-by-step remedies
 SYMPTOMS_DATA = [
     {
         "id": "yellow_leaves",
@@ -78,33 +74,27 @@ def render_symptom_guide(app):
     container = app.root_layout.ids.main_content
     container.clear_widgets()
 
-    from main import SymptomRow, PillButton
-
-    # Header
     header = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(60))
-    header.add_widget(Label(text="Symptom Guide", bold=True, font_size="30sp", color=COLOR_DARKEST, halign="left", size_hint_y=None, height=dp(40)))
-    header.add_widget(Label(text="Describe what you see -- we'll help you figure out what's wrong.", font_size="12sp", color=COLOR_MUTED, halign="left", size_hint_y=None, height=dp(18)))
+    header.add_widget(Label(text="Symptom Guide", bold=True, font_size="30sp", color=theme.text, halign="left", size_hint_y=None, height=dp(40)))
+    header.add_widget(Label(text="Describe what you see -- we'll help you figure out what's wrong.", font_size="12sp", color=theme.muted, halign="left", size_hint_y=None, height=dp(18)))
     container.add_widget(header)
 
-    # Search bar input
     ti = TextInput(
         hint_text="e.g. yellow leaves, drooping, brown tips, bugs...",
         background_normal="", background_active="",
-        background_color=hex_color("#FFFFFF"), foreground_color=COLOR_DARKEST,
+        background_color=theme.surface, foreground_color=theme.text,
         padding=(dp(16), dp(12)), size_hint_y=None, height=dp(44)
     )
     container.add_widget(ti)
 
-    # AI Health Check button (Gemini wiring TBD by teammate)
     health_btn = PillButton(
         text="\U0001F4F8  Health Check (AI)",
         size_hint_y=None, height=dp(48),
-        bg_color=COLOR_DARK_GREEN, fg_color=[1, 1, 1, 1],
+        bg_color=theme.dark_green, fg_color=[1, 1, 1, 1],
     )
     health_btn.bind(on_release=lambda *_: _open_health_check(app))
     container.add_widget(health_btn)
 
-    # List of symptom cards
     list_box = BoxLayout(orientation="vertical", spacing=dp(10), size_hint_y=None)
     list_box.bind(minimum_height=list_box.setter("height"))
 
@@ -132,50 +122,43 @@ def render_symptom_detail(app, symptom):
     container = app.root_layout.ids.main_content
     container.clear_widgets()
 
-    from main import RoundedBox, EMOJI_FONT
-
-    # Selected symptom header
     header = BoxLayout(size_hint_y=None, height=dp(50), spacing=dp(10))
     header.add_widget(Label(text=symptom["icon"], font_name=EMOJI_FONT, font_size="28sp", size_hint_x=None, width=dp(36)))
-    header.add_widget(Label(text=symptom["title"], bold=True, font_size="24sp", color=COLOR_DARKEST, halign="left"))
+    header.add_widget(Label(text=symptom["title"], bold=True, font_size="24sp", color=theme.text, halign="left"))
     container.add_widget(header)
 
-    # Causes list section
-    container.add_widget(Label(text="Possible causes", bold=True, font_size="16sp", color=COLOR_DARKEST, halign="left", size_hint_y=None, height=dp(24)))
+    container.add_widget(Label(text="Possible causes", bold=True, font_size="16sp", color=theme.text, halign="left", size_hint_y=None, height=dp(24)))
     for cause_title, cause_desc in symptom["causes"]:
-        card = RoundedBox(orientation="vertical", padding=dp(12), size_hint_y=None, height=dp(60), bg_color=[1, 1, 1, 1], border_color=COLOR_BORDER)
-        card.add_widget(Label(text=cause_title, bold=True, font_size="13sp", color=COLOR_DARKEST, halign="left"))
-        card.add_widget(Label(text=cause_desc, font_size="11sp", color=COLOR_MUTED2, halign="left"))
+        card = RoundedBox(orientation="vertical", padding=dp(12), size_hint_y=None, height=dp(60), bg_color=theme.surface, border_color=theme.border)
+        card.add_widget(Label(text=cause_title, bold=True, font_size="13sp", color=theme.text, halign="left"))
+        card.add_widget(Label(text=cause_desc, font_size="11sp", color=theme.muted2, halign="left"))
         container.add_widget(card)
 
-    # Solutions section
-    container.add_widget(Label(text="How to fix it", bold=True, font_size="16sp", color=COLOR_DARKEST, halign="left", size_hint_y=None, height=dp(24)))
+    container.add_widget(Label(text="How to fix it", bold=True, font_size="16sp", color=theme.text, halign="left", size_hint_y=None, height=dp(24)))
     for fix_title, fix_desc in symptom["fixes"]:
-        card = RoundedBox(orientation="vertical", padding=dp(12), size_hint_y=None, height=dp(60), bg_color=COLOR_CARD_GREEN, border_color=COLOR_CARD_GREEN)
-        card.add_widget(Label(text=fix_title, bold=True, font_size="13sp", color=COLOR_DARK_GREEN, halign="left"))
-        card.add_widget(Label(text=fix_desc, font_size="11sp", color=COLOR_MUTED2, halign="left"))
+        card = RoundedBox(orientation="vertical", padding=dp(12), size_hint_y=None, height=dp(60), bg_color=theme.accent_soft, border_color=theme.accent_soft)
+        card.add_widget(Label(text=fix_title, bold=True, font_size="13sp", color=theme.dark_green, halign="left"))
+        card.add_widget(Label(text=fix_desc, font_size="11sp", color=theme.muted2, halign="left"))
         container.add_widget(card)
 
 
 def _open_health_check(app):
-    """Let the user pick a photo. AI diagnosis is wired in later."""
     from kivy.uix.filechooser import FileChooserIconView
-    from main import PillButton
 
     picker = ModalView(size_hint=(0.9, 0.9))
-    box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(10))
+    box = RoundedBox(orientation="vertical", spacing=dp(10), padding=dp(10),
+                     bg_color=theme.surface, border_color=theme.border)
     box.add_widget(Label(text="Pick a photo of your plant", bold=True,
-                         font_size="16sp", color=COLOR_DARKEST,
+                         font_size="16sp", color=theme.text,
                          size_hint_y=None, height=dp(30)))
 
     chooser = FileChooserIconView(filters=["*.jpg", "*.jpeg", "*.png"])
     box.add_widget(chooser)
 
     btn_row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
-    cancel = PillButton(text="Cancel", bg_color=hex_color("#F6F5F0"),
-                        fg_color=COLOR_MUTED2)
+    cancel = PillButton(text="Cancel", bg_color=theme.input_bg, fg_color=theme.muted2)
     cancel.bind(on_release=lambda *_: picker.dismiss())
-    analyze = PillButton(text="Analyze", bg_color=COLOR_DARK_GREEN)
+    analyze = PillButton(text="Analyze", bg_color=theme.dark_green)
 
     def do_analyze(*_):
         if not chooser.selection:
@@ -193,20 +176,17 @@ def _open_health_check(app):
 
 
 def _show_result(app, image_path):
-    """Placeholder result. Teammate will replace this with the Gemini call."""
-    from main import RoundedBox, PillButton
-
     modal = ModalView(size_hint=(None, None), size=(dp(360), dp(220)))
     box = RoundedBox(orientation="vertical", padding=dp(20), spacing=dp(12),
-                     bg_color=[1, 1, 1, 1], border_color=COLOR_BORDER)
+                     bg_color=theme.surface, border_color=theme.border)
     box.add_widget(Label(text="\U0001F33F  Health Check", bold=True,
-                         font_size="18sp", color=COLOR_DARKEST,
+                         font_size="18sp", color=theme.text,
                          size_hint_y=None, height=dp(30)))
     box.add_widget(Label(
         text="Photo received! AI diagnosis is coming soon.",
-        font_size="13sp", color=COLOR_MUTED2, halign="center"))
+        font_size="13sp", color=theme.muted2, halign="center"))
 
-    ok = PillButton(text="OK", bg_color=COLOR_DARK_GREEN, size_hint_y=None, height=dp(44))
+    ok = PillButton(text="OK", bg_color=theme.dark_green, size_hint_y=None, height=dp(44))
     ok.bind(on_release=lambda *_: modal.dismiss())
     box.add_widget(ok)
     modal.add_widget(box)

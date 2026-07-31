@@ -2,14 +2,12 @@
 # Dashboard Page View
 # ===========================================================================
 
+from components.widgets import StatCard, PlantRow
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.metrics import dp
-from kivy.utils import get_color_from_hex as hex_color
 
-# Define color constants for styling elements
-COLOR_DARKEST = hex_color("#1E2A20")
-COLOR_MUTED = hex_color("#788177")
+from theme import theme
 
 def render_dashboard(app):
     """Renders either the main dashboard overview or the welcome empty state."""
@@ -25,15 +23,13 @@ def render_dashboard(app):
     header = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(60))
     header.add_widget(Label(
         text="Dashboard", bold=True, font_size="30sp",
-        color=COLOR_DARKEST, halign="left", size_hint_y=None, height=dp(40)
+        color=theme.text, halign="left", size_hint_y=None, height=dp(40)
     ))
     header.add_widget(Label(
         text="Overview of your current plant status", font_size="12sp",
-        color=COLOR_MUTED, halign="left", size_hint_y=None, height=dp(18)
+        color=theme.muted, halign="left", size_hint_y=None, height=dp(18)
     ))
     container.add_widget(header)
-
-    from main import StatCard, PlantRow
 
     # Calculate statistics based on plant care dates
     overdue = sum(1 for p in app.plants if p.get("daysUntilWater", 0) < 0)
@@ -49,7 +45,7 @@ def render_dashboard(app):
     # Section title
     container.add_widget(Label(
         text="Upcoming watering", bold=True, font_size="18sp",
-        color=COLOR_DARKEST, halign="left", size_hint_y=None, height=dp(30)
+        color=theme.text, halign="left", size_hint_y=None, height=dp(30)
     ))
 
     # List of plant rows
