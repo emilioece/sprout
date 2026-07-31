@@ -87,6 +87,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# ---------- Uploaded plant photos (local dev) ----------
+backend/app/static/uploads/
 # ---------- kivy-ui in desktop-new ----------
 sprout-env/
 **/sprout-env/
