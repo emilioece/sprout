@@ -6,6 +6,9 @@ Backend must be running:
     uvicorn app.main:app --reload
 """
 
+import mimetypes
+import os
+
 import requests
 from datetime import datetime, timezone
 
@@ -131,3 +134,27 @@ def register(email, password):
     }
     resp = requests.post(f"{API_BASE_URL}/register", json=payload, timeout=TIMEOUT)
     return _handle(resp)
+
+
+def upload_plant_photo(plant_id, file_path):
+    """
+    sends one image file to POST /plants/{id}/photo
+    comes back with the updated plant dict which now has photo_url on it
+
+    the server only takes jpeg, png and webp, and it rejects anything
+    bigger than 5 mb
+    """
+    # work out the content type from the file extension so the server
+    # knows what it is getting. falls back to jpeg if we cannot tell
+    mime = mimetypes.guess_type(file_path)[0] or "image/jpeg"
+    filename = os.path.basename(file_path)
+
+    # this goes up as multipart form data, not json, because it is a file
+    with open(file_path, "rb") as fh:
+        resp = requests.post(
+            f"{API_BASE_URL}/plants/{plant_id}/photo",
+            files={"file": (filename, fh, mime)},
+            timeout=TIMEOUT,
+        )
+
+    return _decorate(_handle(resp))

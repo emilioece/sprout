@@ -6,6 +6,41 @@
 # Reusable Styled Custom Widgets
 # ===========================================================================
 
+[FileIconEntry@Widget]:
+    locked: False
+    path: ctx.path
+    selected: self.path in ctx.controller().selection
+    size_hint: None, None
+    on_touch_down: self.collide_point(*args[1].pos) and ctx.controller().entry_touched(self, args[1])
+    on_touch_up: self.collide_point(*args[1].pos) and ctx.controller().entry_released(self, args[1])
+    size: '110dp', '124dp'
+
+    canvas:
+        Color:
+            rgba: (0.13, 0.35, 0.20, 0.22) if self.selected else (0, 0, 0, 0)
+        RoundedRectangle:
+            pos: root.pos
+            size: root.size
+            radius: [dp(10)]
+
+    Image:
+        size: '76dp', '76dp'
+        source: 'atlas://data/images/defaulttheme/filechooser_folder' if ctx.isdir else ctx.path
+        allow_stretch: True
+        keep_ratio: True
+        pos: root.x + dp(17), root.y + dp(40)
+
+    Label:
+        text: ctx.name
+        color: 0.16, 0.18, 0.16, 1
+        font_size: '11sp'
+        text_size: (root.width, self.height)
+        halign: 'center'
+        shorten: True
+        size: '110dp', '18dp'
+        pos: root.x, root.y + dp(18)
+
+
 <RoundedBox>:
     canvas.before:
         Color:
