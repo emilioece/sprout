@@ -570,7 +570,97 @@ class ErrorModal(ModalView):
         ok_btn.bind(on_release=lambda *_: self.dismiss())
         box.add_widget(ok_btn)
         self.add_widget(box)
+        
+class AuthModal(ModalView):
+    #Non-dismissible modal forcing the user to log in or sign up.
+    def __init__(self, on_login_success, **kwargs):
+        width = min(dp(400), Window.width * 0.9)
+        height = min(dp(450), Window.height * 0.8)
+        # auto_dismiss=False ensures the user cannot click outside to close it
+        super().__init__(size_hint=(None, None), size=(width, height), auto_dismiss=False, **kwargs)
+        self.on_login_success = on_login_success
+        self.is_login_mode = True 
+        self._build_ui()
 
+    def _labeled_input(self, label_text, is_password=False):
+        box = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(54), spacing=dp(4))
+        lbl = Label(text=label_text, font_size="11sp", bold=True, color=COLOR_MUTED2, size_hint_y=None, height=dp(16), halign="left")
+        lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        box.add_widget(lbl)
+
+        ti = TextInput(
+            multiline=False, password=is_password, background_normal="", background_active="",
+            background_color=hex_color("#F6F5F0"), foreground_color=COLOR_DARKEST, 
+            cursor_color=COLOR_DARK_GREEN, padding=(dp(14), dp(10)), size_hint_y=None, height=dp(40)
+        )
+        box.add_widget(ti)
+        return box, ti
+
+    def _build_ui(self):
+        self.clear_widgets()
+        root = RoundedBox(orientation="vertical", bg_color=[1, 1, 1, 1], border_color=COLOR_BORDER, radius=dp(20), padding=dp(24), spacing=dp(16))
+        
+        # Header
+        title = "Welcome Back" if self.is_login_mode else "Create Account"
+        title_lbl = Label(text=title, bold=True, font_size="20sp", color=COLOR_DARKEST, size_hint_y=None, height=dp(40))
+        root.add_widget(title_lbl)
+
+        # Inputs
+        email_box, self.email_input = self._labeled_input("Email")
+        root.add_widget(email_box)
+
+        pass_box, self.password_input = self._labeled_input("Password", is_password=True)
+        root.add_widget(pass_box)
+
+        # Action Button
+        action_text = "Log In" if self.is_login_mode else "Sign Up"
+        self.submit_btn = PillButton(text=action_text, bg_color=COLOR_DARK_GREEN, radius=dp(14), size_hint_y=None, height=dp(50))
+        self.submit_btn.bind(on_release=lambda *_: self._authenticate())
+        root.add_widget(self.submit_btn)
+
+        # Toggle Mode Button
+        toggle_text = "Need an account? Sign up" if self.is_login_mode else "Already have an account? Log in"
+        toggle_btn = Button(text=toggle_text, color=COLOR_DARK_GREEN, background_color=[0,0,0,0], font_size="12sp", size_hint_y=None, height=dp(30))
+        toggle_btn.bind(on_release=self._toggle_mode)
+        root.add_widget(toggle_btn)
+
+        self.add_widget(root)
+
+    def _toggle_mode(self, *args):
+        self.is_login_mode = not self.is_login_mode
+        self._build_ui()
+
+    def _authenticate(self):
+        email = self.email_input.text.strip()
+        password = self.password_input.text.strip()
+        if not email or not password:
+            return
+
+        self.submit_btn.text = "Processing..."
+        self.submit_btn.disabled = True
+
+        def worker():
+            try:
+                if self.is_login_mode:
+                    # Expects a mocked or real api.login method returning a token or user profile
+                    user_data = api.login(email, password)
+                else:
+                    user_data = api.register(email, password)
+                Clock.schedule_once(lambda dt: self._on_success(user_data))
+            except Exception as exc:
+                Clock.schedule_once(lambda dt, err=exc: self._on_error(err))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_success(self, user_data):
+        self.dismiss()
+        if self.on_login_success:
+            self.on_login_success(user_data)
+
+    def _on_error(self, exc):
+        self.submit_btn.text = "Log In" if self.is_login_mode else "Sign Up"
+        self.submit_btn.disabled = False
+        ErrorModal("Authentication failed. Please try again.").open()
 
 class SproutApp(App):
     """Main App Controller Class."""
@@ -580,11 +670,27 @@ class SproutApp(App):
         self.active_tab = "dashboard"
         self.active_symptom = None
         self.root_layout = RootLayout()
+        
+        #Track Session State
+        self.current_user = None
+        Clock.schedule_once(lambda dt: self.require_login(), 0)
+        
+        return self.root_layout
+
+    def require_login(self):
+        #Opening non-dismissable auth modal.
+        AuthModal(on_login_success=self.on_authenticated).open()
+    
+    def on_authenticated(self, user_data):
+        #Callback triggered after sucessful client-server login exchange.
+        #Save session state.
+        self.current_user = user_data
+        
+        #Continue with normal application boot protocol.
         self._update_nav_styles()
         self.render_empty_state()
         self._fetch_plants()
-        return self.root_layout
-
+            
     def switch_tab(self, tab_name):
         """Switches current navigation tab and updates view content."""
         self.active_tab = tab_name
