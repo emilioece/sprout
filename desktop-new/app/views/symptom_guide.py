@@ -3,7 +3,7 @@
 # ===========================================================================
 
 from components.widgets import SymptomRow, PillButton, RoundedBox
-from components.utils import EMOJI_FONT
+from components.utils import EMOJI_FONT, default_picture_dir
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
@@ -152,7 +152,11 @@ def _open_health_check(app):
                          font_size="16sp", color=theme.text,
                          size_hint_y=None, height=dp(30)))
 
-    chooser = FileChooserIconView(filters=["*.jpg", "*.jpeg", "*.png"])
+    # start in the pictures folder instead of the c drive root
+    chooser = FileChooserIconView(
+        filters=["*.jpg", "*.jpeg", "*.png"],
+        path=default_picture_dir(),
+    )
     box.add_widget(chooser)
 
     btn_row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))

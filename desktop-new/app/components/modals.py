@@ -1,3 +1,4 @@
+import os
 import threading
 from kivy.clock import Clock
 from kivy.core.window import Window
@@ -12,6 +13,7 @@ from kivy.uix.textinput import TextInput
 
 import api
 from theme import theme
+from components.utils import EMOJI_FONT, default_picture_dir
 from components.widgets import RoundedBox, PillButton, EmojiLabel, IconButtonRow, SelectableCard, IconRow
 
 QUICK_SPECIES = [
@@ -207,6 +209,120 @@ class DeleteConfirmModal(ModalView):
         ErrorModal("Could not delete plant.").open()
 
 
+class PhotoPickerModal(ModalView):
+    """
+    the popup for choosing a plant photo
+
+    it opens on a friendly upload panel instead of throwing the user
+    straight into a file browser, because nobody wants to see their
+    whole c drive. the browser only shows up if they ask for it
+
+    on_picked(path) fires once, with the path of the file they chose
+    """
+
+    def __init__(self, on_picked, **kwargs):
+        width = min(dp(460), Window.width * 0.92)
+        height = min(dp(420), Window.height * 0.85)
+        super().__init__(size_hint=(None, None), size=(width, height), **kwargs)
+        self.on_picked = on_picked
+        self._build_landing()
+
+    def _shell(self):
+        """
+        wipes whatever is on screen and gives back a fresh rounded box
+        we use this to swap between the upload panel and the file browser
+        without building a second popup
+        """
+        box = RoundedBox(
+            orientation="vertical", padding=dp(18), spacing=dp(12),
+            bg_color=theme.surface, border_color=theme.border, radius=dp(18),
+        )
+        self.clear_widgets()
+        self.add_widget(box)
+        return box
+
+    def _build_landing(self):
+        """the first screen, with the upload box and the two buttons"""
+        box = self._shell()
+
+        # title row with an x to close
+        head = BoxLayout(size_hint_y=None, height=dp(34), spacing=dp(8))
+        title = Label(text="Add a photo", bold=True, font_size="17sp",
+                      color=theme.text, halign="left", valign="middle")
+        title.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        head.add_widget(title)
+        close_btn = PillButton(text="X", size_hint=(None, None), size=(dp(30), dp(30)),
+                               bg_color=theme.chip, fg_color=theme.muted2, radius=dp(15))
+        close_btn.bind(on_release=lambda *_: self.dismiss())
+        head.add_widget(close_btn)
+        box.add_widget(head)
+
+        # the big upload looking box in the middle
+        drop = RoundedBox(
+            orientation="vertical", spacing=dp(6), padding=dp(16),
+            bg_color=theme.accent_soft, border_color=theme.dark_green, radius=dp(16),
+        )
+        drop.add_widget(EmojiLabel(text="\U0001F5BC\uFE0F", font_size="34sp",
+                                   size_hint_y=None, height=dp(44)))
+        hint = Label(text="Choose a photo of your plant", font_size="13sp",
+                     color=theme.muted2, size_hint_y=None, height=dp(20))
+        drop.add_widget(hint)
+        sub = Label(text="JPG, PNG or WEBP  \u00b7  up to 5 MB", font_size="10sp",
+                    color=theme.muted, size_hint_y=None, height=dp(16))
+        drop.add_widget(sub)
+        box.add_widget(drop)
+
+        browse_btn = PillButton(text="Browse my computer", bg_color=theme.dark_green,
+                                radius=dp(14), size_hint_y=None, height=dp(46))
+        browse_btn.bind(on_release=lambda *_: self._build_browser())
+        box.add_widget(browse_btn)
+
+        # placeholder for now. the qr code phone upload plugs in here later
+        self.phone_btn = PillButton(
+            text="\U0001F4F1  Upload from my phone", bg_color=theme.chip,
+            fg_color=theme.dark_green, radius=dp(14),
+            size_hint_y=None, height=dp(46), font_name=EMOJI_FONT,
+        )
+        self.phone_btn.bind(on_release=lambda *_: self._phone_placeholder())
+        box.add_widget(self.phone_btn)
+
+    def _phone_placeholder(self):
+        """temporary until the qr flow is built"""
+        self.phone_btn.text = "Phone upload coming soon"
+        self.phone_btn.disabled = True
+
+    def _build_browser(self):
+        """the second screen, an actual file browser starting in pictures"""
+        from kivy.uix.filechooser import FileChooserIconView
+
+        box = self._shell()
+        chooser = FileChooserIconView(
+            filters=["*.jpg", "*.jpeg", "*.png", "*.webp"],
+            path=default_picture_dir(),
+        )
+        box.add_widget(chooser)
+
+        row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
+        back_btn = PillButton(text="Back", bg_color=theme.chip, fg_color=theme.muted2,
+                              radius=dp(14))
+        back_btn.bind(on_release=lambda *_: self._build_landing())
+        choose_btn = PillButton(text="Choose", bg_color=theme.dark_green, radius=dp(14))
+
+        def _choose(*_):
+            # selection is a list, and it is empty if they clicked choose
+            # without actually picking anything
+            if chooser.selection:
+                path = chooser.selection[0]
+                self.dismiss()
+                if self.on_picked:
+                    self.on_picked(path)
+
+        choose_btn.bind(on_release=_choose)
+        row.add_widget(back_btn)
+        row.add_widget(choose_btn)
+        box.add_widget(row)
+
+
 class AddPlantModal(ModalView):
     def __init__(self, on_saved, **kwargs):
         width = min(dp(480), Window.width * 0.92)
@@ -216,6 +332,7 @@ class AddPlantModal(ModalView):
         self.species = ""
         self.nickname_input = None
         self.location_input = None
+        self.photo_path = None
         self.step = 1
         self._build_step_1()
 
@@ -381,8 +498,14 @@ class AddPlantModal(ModalView):
         photo_box.add_widget(photo_lbl)
 
         photo_area = RoundedBox(bg_color=theme.accent_soft, border_color=theme.accent_soft, radius=dp(14), size_hint_y=None, height=dp(80))
-        add_photo_btn = PillButton(text="+ Add photo", bg_color=[0, 0, 0, 0], fg_color=theme.dark_green, font_size="12sp")
-        photo_area.add_widget(add_photo_btn)
+        # we hold onto this one as self so we can change its text later
+        # to show which file got picked
+        self.photo_btn = PillButton(
+            text=self._photo_btn_label(), bg_color=[0, 0, 0, 0],
+            fg_color=theme.dark_green, font_size="12sp",
+        )
+        self.photo_btn.bind(on_release=lambda *_: self._open_photo_picker())
+        photo_area.add_widget(self.photo_btn)
         photo_box.add_widget(photo_area)
         body.add_widget(photo_box)
 
@@ -442,6 +565,26 @@ class AddPlantModal(ModalView):
 
         self.add_widget(root)
 
+
+    def _photo_btn_label(self):
+            """
+            what the add photo button says. shows the file name once one is
+            picked, shortened if it is really long so it does not overflow
+            """
+            if not self.photo_path:
+                return "+ Add photo"
+            name = os.path.basename(self.photo_path)
+            return name if len(name) <= 28 else name[:25] + "..."
+
+    def _open_photo_picker(self):
+        PhotoPickerModal(on_picked=self._on_photo_picked).open()
+
+    def _on_photo_picked(self, path):
+        """called by the picker once the user has chosen a file"""
+        self.photo_path = path
+        self.photo_btn.text = self._photo_btn_label()
+
+
     def _save(self):
         nickname = self.nickname_input.text.strip()
         if not nickname:
@@ -452,20 +595,41 @@ class AddPlantModal(ModalView):
         self.save_btn.text = "Adding..."
         self.save_btn.disabled = True
 
+       # grab this before the thread starts so the worker is not reaching
+        # back into the widget while the user might still be clicking around
+        photo_path = self.photo_path
+
         def worker():
             try:
                 plant = api.create_plant(nickname, species, location)
-                Clock.schedule_once(lambda dt, p=plant: self._on_success(p))
+
+                # the photo endpoint needs a plant id, so the plant has to
+                # exist first. if the photo fails we still keep the plant,
+                # because losing someones plant over a bad jpeg would be
+                # pretty annoying
+                photo_failed = False
+                if photo_path:
+                    try:
+                        plant = api.upload_plant_photo(plant["id"], photo_path)
+                    except Exception:
+                        photo_failed = True
+
+                Clock.schedule_once(
+                    lambda dt, p=plant, f=photo_failed: self._on_success(p, f)
+                )
             except Exception as exc:
                 Clock.schedule_once(lambda dt, err=exc: self._on_error(err))
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _on_success(self, plant):
+    def _on_success(self, plant, photo_failed=False):
         self.dismiss()
         if self.on_saved:
             self.on_saved(plant)
-
+        # the plant did save, so this is a warning and not an error
+        if photo_failed:
+            ErrorModal("Plant saved, but the photo could not be uploaded.").open()
+            
     def _on_error(self, exc):
         self.save_btn.text = "Add to my collection"
         self.save_btn.disabled = False

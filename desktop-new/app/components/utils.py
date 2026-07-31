@@ -29,3 +29,14 @@ def register_emoji_font():
     return None
 
 EMOJI_FONT = register_emoji_font()
+
+def default_picture_dir():
+    """
+    picks a sensible folder for the file picker to open in
+    tries the pictures folder first, then the home folder, and only
+    falls back to the current directory if neither exists
+    """
+    for candidate in (os.path.expanduser("~/Pictures"), os.path.expanduser("~")):
+        if os.path.isdir(candidate):
+            return candidate
+    return os.getcwd()
