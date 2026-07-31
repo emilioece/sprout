@@ -89,3 +89,10 @@ yarn-error.log*
 
 # ---------- Uploaded plant photos (local dev) ----------
 backend/app/static/uploads/
+# ---------- kivy-ui in desktop-new ----------
+sprout-env/
+**/sprout-env/
+.kivy/
+desktop-new/dist/
+desktop-new/uploads/
+desktop-new/temp/

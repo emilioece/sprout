@@ -4,9 +4,14 @@ from fastapi.staticfiles import StaticFiles
 
 import os
 
+from dotenv import load_dotenv
+
 from app.database import engine, Base
 from app import models 
-from app.routers import plants, users
+from app.routers import plants, users, ai
+
+# Load environment variables (GEMINI_API_KEY, etc.)
+load_dotenv()
 
 # Create tables if they don't exist 
 Base.metadata.create_all(bind=engine)
@@ -44,4 +49,7 @@ def root():
 
 # Mount plant routes under /plants
 app.include_router(plants.router)
+
 app.include_router(users.router)
+
+app.include_router(ai.router)
