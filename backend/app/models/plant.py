@@ -11,6 +11,7 @@ class Plant(Base):
     species  =  Column(String,  nullable=False)
     nickname  =  Column(String,  nullable=False)
     location =  Column(String,  nullable= True)
+    photo_url = Column(String, nullable=True)
 
 
     # Care information 
@@ -20,6 +21,7 @@ class Plant(Base):
 
     # History
     last_watered_at = Column(DateTime, nullable = True)
+
 
     # On creation, date should exist
     created_at = Column(

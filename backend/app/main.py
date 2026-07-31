@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+import os
 
 from app.database import engine, Base
 from app import models 
@@ -29,6 +32,11 @@ app.add_middleware(
         # Allow all request headers
         allow_headers=["*"],
         )
+
+# Serve uploaded plant photos back out at /uploads/<filename>
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "static", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 @app.get("/")
 def root():
