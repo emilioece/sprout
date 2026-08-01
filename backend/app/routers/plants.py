@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.plant import Plant 
 from app.schemas.plants import PlantCreate, PlantResponse, PlantUpdate 
+from app.services.care_guide_mapper import care_guide_to_orm
 
 # Helper function to query plant
 def get_plant_or_404(plant_id:int, db: Session) -> Plant:
@@ -34,14 +35,25 @@ def list_plants(db: Session = Depends(get_db)):
 
 @router.post("/", response_model = PlantResponse, status_code= 201)
 def create_plant(plant_in: PlantCreate, db: Session = Depends(get_db)):
-    # Convert Pydantic model to dictionary and unpack
-    plant = Plant(**plant_in.model_dump())
+    # Convert Pydantic model to dictionary and unpack (care_guide is related tables)
+    plant = Plant(**plant_in.model_dump(exclude={"care_guide"}))
+
+    if plant_in.care_guide is not None:
+        plant.watering_interval_days = (
+                plant_in.care_guide.watering_schedule.interval_days
+                )
 
     # Add to DB
     db.add(plant)
+    # Assign plant.id before inserting the related care guide row
+    db.flush()
+
+    if plant_in.care_guide is not None:
+        db.add(care_guide_to_orm(plant.id, plant_in.care_guide))
+
     db.commit()
 
-    # Reload DB 
+    # Reload DB
     db.refresh(plant)
 
     return plant

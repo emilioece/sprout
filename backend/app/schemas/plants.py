@@ -1,6 +1,8 @@
 from datetime import datetime 
 from pydantic import BaseModel 
 
+from app.schemas.care_guide import CareGuideResponse
+
 # Request model used when adding a new plant
 class PlantCreate(BaseModel):
     species: str
@@ -8,6 +10,8 @@ class PlantCreate(BaseModel):
     location: str | None = None
     watering_interval_days: int = 7
     light_requirement: str | None = None
+    # Optional full guide persisted on Add (from care-preview)
+    care_guide: CareGuideResponse | None = None
 
 # Request model used when updating an existing plant
 class PlantUpdate(BaseModel):

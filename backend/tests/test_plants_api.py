@@ -1,5 +1,7 @@
 # Tests for /plants CRUD + water endpoints
 
+from app.models.care_guide import PlantCareGuide, PlantCareGuideItem
+
 
 def test_create_plant_returns_201(client, sample_plant_payload):
     response = client.post("/plants/", json=sample_plant_payload)
@@ -14,6 +16,54 @@ def test_create_plant_returns_201(client, sample_plant_payload):
     assert data["light_requirement"] == "bright indirect"
     assert data["last_watered_at"] is None
     assert "created_at" in data
+
+
+def test_create_plant_with_care_guide_persists_rows(client, db_session, sample_plant_payload):
+    payload = {
+            **sample_plant_payload,
+            # Intentionally different from guide so we can prove sync
+            "watering_interval_days": 99,
+            "care_guide": {
+                "name": "Maria",
+                "species": "Tagetes",
+                "watering_schedule": {
+                    "interval_days": 5,
+                    "method_summary": "Water when top inch is dry",
+                    "how_to_check_if_due": ["Finger test"],
+                    },
+                "fertilizing": {
+                    "interval_days": 30,
+                    "fertilizer_type": "balanced liquid",
+                    "dilution_or_strength": "half strength",
+                    },
+                "repotting": {
+                    "interval_months": 12,
+                    "best_season": "spring",
+                    "pot_size_change": "one size up",
+                    "soil_mix": ["potting mix"],
+                    "step_by_step": ["Remove plant", "Repot"],
+                    },
+                },
+            }
+
+    response = client.post("/plants/", json=payload)
+    assert response.status_code == 201
+
+    data = response.json()
+    plant_id = data["id"]
+    # watering_interval_days comes from the care guide, not the raw payload field
+    assert data["watering_interval_days"] == 5
+
+    guide = db_session.query(PlantCareGuide).filter_by(plant_id=plant_id).one()
+    assert guide.watering_interval_days == 5
+    assert guide.fertilizer_type == "balanced liquid"
+    assert guide.repotting_interval_months == 12
+
+    items = db_session.query(PlantCareGuideItem).filter_by(care_guide_id=guide.id).all()
+    assert len(items) >= 3
+    texts = {item.text for item in items}
+    assert "Finger test" in texts
+    assert "potting mix" in texts
 
 
 def test_list_plants_empty(client):
