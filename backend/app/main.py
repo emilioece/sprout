@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 
 from app.database import engine, Base
 from app import models 
-from app.routers import plants, users, ai
+# update to include mobile
+from app.routers import plants, users, ai, mobile
 
 # Load environment variables (GEMINI_API_KEY, etc.)
 load_dotenv()
@@ -53,3 +54,6 @@ app.include_router(plants.router)
 app.include_router(users.router)
 
 app.include_router(ai.router)
+
+# Phone photo upload over the local network (QR code flow)
+app.include_router(mobile.router)
