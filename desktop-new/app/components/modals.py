@@ -25,7 +25,7 @@ QUICK_SPECIES = [
 
 
 class WaterToast(RoundedBox):
-    def __init__(self, message="\U0001F4A7 Watered!", **kwargs):
+    def __init__(self, message="\U0001F4A7 Watered!", icon="\U0001F4A7", **kwargs):
         super().__init__(
             orientation="horizontal",
             size_hint=(None, None),
@@ -38,7 +38,7 @@ class WaterToast(RoundedBox):
         )
         self.opacity = 0
         self.add_widget(IconRow(
-            icon="\U0001F4A7",
+            icon=icon,
             text=message,
             text_color=[1, 1, 1, 1],
             icon_size="16sp",

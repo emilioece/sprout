@@ -99,9 +99,7 @@ class SproutApp(App):
         self.render_current_tab()
 
     def water_plant(self, plant_id):
-        plant = next((p for p in self.plants if p.get("id") == plant_id), None)
-        name = (plant.get("name") or plant.get("nickname", "Plant")) if plant else "Plant"
-        WaterToast(message=f"{name} watered!")
+
 
         def worker():
             try:
@@ -117,6 +115,49 @@ class SproutApp(App):
             if p.get("id") == updated.get("id"):
                 self.plants[i] = updated
                 break
+        name = updated.get("name") or updated.get("nickname", "Plant")
+        days = updated.get("daysUntilWater", updated.get("watering_interval_days", 7))
+        WaterToast(message=f"{name} watered! Next in {days}d")
+        self.render_current_tab()
+
+    def fertilize_plant(self, plant_id):
+        def worker():
+            try:
+                updated = api.fertilize_plant(plant_id)
+                Clock.schedule_once(lambda dt: self._on_plant_fertilized(updated))
+            except Exception:
+                Clock.schedule_once(lambda dt: ErrorModal("Could not fertilize plant.").open())
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_plant_fertilized(self, updated):
+        for i, p in enumerate(self.plants):
+            if p.get("id") == updated.get("id"):
+                self.plants[i] = updated
+                break
+        name = updated.get("name") or updated.get("nickname", "Plant")
+        days = updated.get("daysUntilFertilize", updated.get("fertilizing_interval_days", 30))
+        WaterToast(message=f"{name} fertilized! Next in {days}d", icon="\U0001F33F")
+        self.render_current_tab()
+
+    def repot_plant(self, plant_id):
+        def worker():
+            try:
+                updated = api.repot_plant(plant_id)
+                Clock.schedule_once(lambda dt: self._on_plant_repotted(updated))
+            except Exception:
+                Clock.schedule_once(lambda dt: ErrorModal("Could not repot plant.").open())
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_plant_repotted(self, updated):
+        for i, p in enumerate(self.plants):
+            if p.get("id") == updated.get("id"):
+                self.plants[i] = updated
+                break
+        name = updated.get("name") or updated.get("nickname", "Plant")
+        days = updated.get("daysUntilRepot", updated.get("repotting_interval_days", 365))
+        WaterToast(message=f"{name} repotted! Next in {days}d", icon="\U0001FAB4")
         self.render_current_tab()
 
     def open_delete_modal(self, plant_id, plant_name):

@@ -8,6 +8,8 @@ class PlantCreate(BaseModel):
     location: str | None = None
     watering_interval_days: int = 7
     light_requirement: str | None = None
+    fertilizing_interval_days: int = 30
+    repotting_interval_days: int = 365
 
 # Request model used when updating an existing plant
 class PlantUpdate(BaseModel):
@@ -32,6 +34,10 @@ class PlantResponse(BaseModel):
     watering_interval_days: int
     light_requirement: str | None
     last_watered_at: datetime | None
+    last_fertilized_at: datetime | None
+    last_repotted_at: datetime | None
+    fertilizing_interval_days: int
+    repotting_interval_days: int
     photo_url: str | None
     created_at: datetime
 

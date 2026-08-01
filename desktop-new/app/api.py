@@ -73,6 +73,14 @@ def _decorate(plant: dict) -> dict:
         plant.get("last_watered_at"),
         plant.get("watering_interval_days") or 7,
     )
+    plant["daysUntilFertilize"] = _days_until_water(
+        plant.get("last_fertilized_at"),
+        plant.get("fertilizing_interval_days") or 30,
+    )
+    plant["daysUntilRepot"] = _days_until_water(
+        plant.get("last_repotted_at"),
+        plant.get("repotting_interval_days") or 365,
+    )
     return plant
 
 
@@ -103,6 +111,23 @@ def water_plant(plant_id):
     partial update that sets last_watered_at to the current time.
     """
     payload = {"last_watered_at": datetime.now(timezone.utc).isoformat()}
+    resp = requests.put(
+        f"{API_BASE_URL}/plants/{plant_id}", json=payload, timeout=TIMEOUT
+    )
+    return _decorate(_handle(resp))
+
+def fertilize_plant(plant_id):
+    """Mark a plant as fertilized right now."""
+    payload = {"last_fertilized_at": datetime.now(timezone.utc).isoformat()}
+    resp = requests.put(
+        f"{API_BASE_URL}/plants/{plant_id}", json=payload, timeout=TIMEOUT
+    )
+    return _decorate(_handle(resp))
+
+
+def repot_plant(plant_id):
+    """Mark a plant as repotted right now."""
+    payload = {"last_repotted_at": datetime.now(timezone.utc).isoformat()}
     resp = requests.put(
         f"{API_BASE_URL}/plants/{plant_id}", json=payload, timeout=TIMEOUT
     )

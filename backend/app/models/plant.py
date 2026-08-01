@@ -21,6 +21,12 @@ class Plant(Base):
 
     # History
     last_watered_at = Column(DateTime, nullable = True)
+    
+    # Fertilizing & repotting history
+    last_fertilized_at = Column(DateTime, nullable=True)
+    last_repotted_at = Column(DateTime, nullable=True)
+    fertilizing_interval_days = Column(Integer, nullable=False, default=30)
+    repotting_interval_days = Column(Integer, nullable=False, default=365)
 
 
     # On creation, date should exist
