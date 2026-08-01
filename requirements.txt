@@ -25,3 +25,5 @@ passlib==1.7.4
 email-validator==2.3.0
 python-multipart==0.0.32
 google-genai==2.14.0
+qrcode>=7.4.2
+pillow>=10.0.0

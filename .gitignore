@@ -96,3 +96,5 @@ sprout-env/
 desktop-new/dist/
 desktop-new/uploads/
 desktop-new/temp/
+backend/app/static/uploads/
+backend/app/static/staging/
