@@ -12,6 +12,7 @@ from app.schemas.care_guide import (
     RepottingGuide,
     WateringSchedule,
 )
+from app.schemas.identify import PlantIdentification
 
 
 def _sample_care_guide():
@@ -131,3 +132,57 @@ def test_chat_returns_200(mock_generate_json, client, sample_plant_payload):
     data = response.json()
     assert "Water" in data["reply"]
     mock_generate_json.assert_called_once()
+
+
+# Patch swaps out Gemini so we only test the route + schema wiring
+@patch("app.routers.ai.generate_json", return_value=_sample_care_guide())
+def test_care_preview_returns_200(mock_generate_json, client):
+    response = client.post(
+            "/plants/care-preview",
+            json={"species": "Tagetes", "name": "Maria"},
+            )
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["species"] == "Tagetes"
+    assert data["watering_schedule"]["interval_days"] == 7
+    mock_generate_json.assert_called_once()
+
+
+def test_care_preview_requires_species(client):
+    response = client.post("/plants/care-preview", json={})
+    assert response.status_code == 422
+
+
+def _sample_identification():
+    return PlantIdentification(
+            species="Fern",
+            confidence=0.86,
+            is_plant=True,
+            )
+
+
+# Patch swaps out Gemini so we only test the route + schema wiring
+@patch("app.routers.ai.generate_json", return_value=_sample_identification())
+def test_identify_returns_200(mock_generate_json, client):
+    response = client.post(
+            "/plants/identify",
+            files={"image": ("fern.jpg", b"fake-image-bytes", "image/jpeg")},
+            )
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["species"] == "Fern"
+    assert data["confidence"] == 0.86
+    assert data["is_plant"] is True
+    mock_generate_json.assert_called_once()
+    # Vision path should pass image bytes through to Gemini helper
+    assert mock_generate_json.call_args.kwargs["image_bytes"] == b"fake-image-bytes"
+
+
+def test_identify_rejects_unsupported_type(client):
+    response = client.post(
+            "/plants/identify",
+            files={"image": ("notes.txt", b"not-an-image", "text/plain")},
+            )
+    assert response.status_code == 400
