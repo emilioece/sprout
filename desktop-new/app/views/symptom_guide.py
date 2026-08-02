@@ -13,6 +13,13 @@ from kivy.utils import get_color_from_hex as hex_color
 
 from theme import theme
 
+import threading
+
+import api
+from kivy.clock import Clock
+from kivy.uix.scrollview import ScrollView
+
+
 SYMPTOMS_DATA = [
     {
         "id": "yellow_leaves",
@@ -180,18 +187,109 @@ def _open_health_check(app):
 
 
 def _show_result(app, image_path):
-    modal = ModalView(size_hint=(None, None), size=(dp(360), dp(220)))
-    box = RoundedBox(orientation="vertical", padding=dp(20), spacing=dp(12),
-                     bg_color=theme.surface, border_color=theme.border)
-    box.add_widget(Label(text="\U0001F33F  Health Check", bold=True,
-                         font_size="18sp", color=theme.text,
-                         size_hint_y=None, height=dp(30)))
-    box.add_widget(Label(
-        text="Photo received! AI diagnosis is coming soon.",
-        font_size="13sp", color=theme.muted2, halign="center"))
+    """
+    sends the photo to the backend for identification and shows what comes back
 
-    ok = PillButton(text="OK", bg_color=theme.dark_green, size_hint_y=None, height=dp(44))
-    ok.bind(on_release=lambda *_: modal.dismiss())
-    box.add_widget(ok)
+    the request goes on a background thread because a vision call takes a few
+    seconds and kivy would freeze the window otherwise. the reply comes back
+    through Clock so widgets are only ever touched from the main thread
+    """
+    modal = ModalView(size_hint=(0.75, 0.75))
+    box = RoundedBox(orientation="vertical", padding=dp(20), spacing=dp(12),
+                     bg_color=theme.surface, border_color=theme.border,
+                     radius=dp(18))
+
+    title = Label(text="Health Check", bold=True, font_size="18sp",
+                  color=theme.text, size_hint_y=None, height=dp(30))
+    box.add_widget(title)
+
+    status = Label(text="Analyzing your photo...", font_size="13sp",
+                   color=theme.muted2, halign="center", valign="middle")
+    status.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+    box.add_widget(status)
+
+    # the results get poured into here once they arrive
+    scroll = ScrollView(size_hint=(1, 1))
+    results = BoxLayout(orientation="vertical", spacing=dp(8), size_hint_y=None,
+                        padding=(0, dp(4)))
+    results.bind(minimum_height=results.setter("height"))
+    scroll.add_widget(results)
+    box.add_widget(scroll)
+
+    close_btn = PillButton(text="Close", bg_color=theme.dark_green,
+                           size_hint_y=None, height=dp(44))
+    close_btn.bind(on_release=lambda *_: modal.dismiss())
+    box.add_widget(close_btn)
+
     modal.add_widget(box)
     modal.open()
+
+    def add_line(text, size="13sp", colour=None, bold=False):
+        label = Label(text=text, font_size=size, bold=bold,
+                      color=colour or theme.text,
+                      halign="left", valign="top", size_hint_y=None)
+        label.bind(
+            width=lambda w, *_: setattr(w, "text_size", (w.width, None)),
+            texture_size=lambda w, *_: setattr(w, "height", w.texture_size[1]),
+        )
+        results.add_widget(label)
+
+    def on_result(data):
+        status.text = ""
+        status.size_hint_y = None
+        status.height = 0
+
+        if not data.get("is_plant", True):
+            add_line("That does not look like a plant.", bold=True,
+                     colour=theme.red)
+            add_line("Try another photo with the plant filling more of the frame.",
+                     colour=theme.muted2)
+            return
+
+        confidence = round(data.get("confidence", 0) * 100)
+        add_line(data.get("species", "Unknown"), size="20sp", bold=True,
+                 colour=theme.dark_green)
+        add_line(f"{confidence}% confident", size="12sp", colour=theme.muted2)
+
+        if data.get("light_requirement"):
+            add_line("")
+            add_line("Light", size="11sp", bold=True, colour=theme.muted2)
+            add_line(data["light_requirement"])
+
+        alternatives = data.get("alternatives") or []
+        if alternatives:
+            add_line("")
+            add_line("It could also be", size="11sp", bold=True,
+                     colour=theme.muted2)
+            for alt in alternatives:
+                pct = round(alt.get("confidence", 0) * 100)
+                add_line(f"{alt.get('species', 'Unknown')}  ({pct}%)",
+                         colour=theme.muted2)
+
+    def on_error(message):
+        status.text = ""
+        status.size_hint_y = None
+        status.height = 0
+
+        # a 503 means the server is fine but nobody has set a gemini key,
+        # which is a very different problem to the request failing
+        if "503" in message:
+            add_line("AI is not set up yet.", bold=True, colour=theme.red)
+            add_line("A GEMINI_API_KEY needs to be added to the .env file "
+                     "in the project root.", colour=theme.muted2)
+        elif "400" in message:
+            add_line("That file type is not supported.", bold=True,
+                     colour=theme.red)
+            add_line("Use a JPEG, PNG or WebP image.", colour=theme.muted2)
+        else:
+            add_line("Could not analyze the photo.", bold=True, colour=theme.red)
+            add_line(message, size="11sp", colour=theme.muted2)
+
+    def worker():
+        try:
+            data = api.identify_plant(image_path)
+            Clock.schedule_once(lambda dt, d=data: on_result(d))
+        except Exception as exc:
+            Clock.schedule_once(lambda dt, e=str(exc): on_error(e))
+
+    threading.Thread(target=worker, daemon=True).start()
