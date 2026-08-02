@@ -14,6 +14,11 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+CONTENT_TYPE_EXTENSIONS = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
 # Helper function to query plant
@@ -136,7 +141,7 @@ def upload_plant_photo(
         if os.path.exists(old_path):
             os.remove(old_path)
 
-    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
+    ext = CONTENT_TYPE_EXTENSIONS[file.content_type]
     filename = f"plant_{plant_id}_{uuid.uuid4().hex}{ext}"
     filepath = os.path.join(UPLOAD_DIR, filename)
 

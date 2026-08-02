@@ -31,6 +31,11 @@ STAGING_DIR = os.path.join(
 os.makedirs(STAGING_DIR, exist_ok=True)
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+CONTENT_TYPE_EXTENSIONS = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 mb
 TOKEN_TTL_SECONDS = 10 * 60  # a qr code is only good for ten minutes
 
@@ -192,7 +197,7 @@ def receive_mobile_photo(token: str, file: UploadFile = File(...)):
     if session.get("path") and os.path.exists(session["path"]):
         os.remove(session["path"])
 
-    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
+    ext = CONTENT_TYPE_EXTENSIONS[file.content_type]
     filepath = os.path.join(STAGING_DIR, f"staged_{token}{ext}")
     with open(filepath, "wb") as f:
         f.write(contents)
