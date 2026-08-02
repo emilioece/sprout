@@ -228,6 +228,7 @@ class PhotoPickerModal(ModalView):
         self.on_picked = on_picked
         self._poll_event = None   # the repeating clock that checks for the photo
         self._qr_path = None      # temp png of the qr code, cleaned up on close
+        self._photo_handled = False   # stops duplicate downloads from overlapping polls
         self.bind(on_dismiss=lambda *_: self._stop_polling())
         self._build_landing()
 
@@ -369,17 +370,26 @@ class PhotoPickerModal(ModalView):
         """
         runs once a second while the qr code is showing
 
-        the actual request goes on a thread so the ui never stalls, and the
-        result comes back through Clock so kivy is only touched from the
-        main thread
+        the flag matters. a phone photo takes longer than a second to come
+        down, so the next tick fires while the first download is still going
+        and both would hand back a photo. that produced a stack of identical
+        dialogs that each had to be dismissed
         """
+        if self._photo_handled:
+            return
+
         def worker():
             try:
+                if self._photo_handled:
+                    return
                 if api.phone_upload_ready(token):
+                    # claim it before the slow part starts, so a tick landing
+                    # mid download turns back straight away
+                    self._photo_handled = True
                     path = api.download_phone_photo(token)
                     Clock.schedule_once(lambda dt, p=path: self._phone_photo_arrived(p))
             except Exception:
-                pass
+                self._photo_handled = False   # let it try again next tick
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -387,13 +397,27 @@ class PhotoPickerModal(ModalView):
         """
         photo is downloaded and sitting in a temp file
 
-        from here it is just a file path, exactly like one picked off the
-        hard drive, so we hand it back the same way
+        show it on the qr screen for a moment first, otherwise the modal just
+        vanishes and it is not obvious anything happened. after that it is
+        handed back as a plain file path, exactly like one picked off the hard
+        drive, so nothing downstream needs to know it came from a phone
         """
         self._stop_polling()
-        self.dismiss()
-        if self.on_picked:
-            self.on_picked(path)
+
+        # swap the qr code out for the photo that just arrived
+        self.qr_image.source = path
+        self.qr_image.reload()
+        self.qr_status.text = "Photo received"
+        self.qr_status.color = theme.dark_green
+        self.qr_status.bold = True
+
+        def finish(dt):
+            self.dismiss()
+            if self.on_picked:
+                self.on_picked(path)
+
+        # long enough to register as confirmation, short enough not to annoy
+        Clock.schedule_once(finish, 1.2)
 
     def _build_browser(self):
         """the second screen, an actual file browser starting in pictures"""
@@ -437,6 +461,8 @@ class AddPlantModal(ModalView):
         self.nickname_input = None
         self.location_input = None
         self.photo_path = None
+        self.care_guide = None
+        self.light_requirement = None
         self.step = 1
         self._build_step_1()
 
@@ -478,6 +504,111 @@ class AddPlantModal(ModalView):
         box.add_widget(ti)
         return box, ti
 
+
+    def _identify_from_photo(self):
+        """
+        the Photo tab. opens the picker, sends whatever comes back to the
+        identify endpoint, and fills in the species from the answer
+
+        the same photo is kept as the plant's photo afterwards, so one picture
+        does both jobs and the user is not asked for it twice
+        """
+        PhotoPickerModal(on_picked=self._on_identify_photo).open()
+
+    def _on_identify_photo(self, path):
+        """runs once a photo has been chosen or sent over from a phone"""
+        busy = ModalView(size_hint=(None, None), size=(dp(300), dp(170)))
+        busy_box = RoundedBox(orientation="vertical", padding=dp(20), spacing=dp(10),
+                              bg_color=theme.surface, border_color=theme.border,
+                              radius=dp(16))
+        busy_msg = Label(text="Identifying your plant...", font_size="14sp",
+                         bold=True, color=theme.text, halign="center",
+                         valign="middle")
+        busy_msg.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        busy_box.add_widget(busy_msg)
+
+        busy_btn = PillButton(text="Cancel", bg_color=theme.chip,
+                              fg_color=theme.muted2, size_hint_y=None,
+                              height=dp(40))
+        busy_btn.bind(on_release=lambda *_: busy.dismiss())
+        busy_box.add_widget(busy_btn)
+        busy.add_widget(busy_box)
+        busy.open()
+
+        def on_identified(data):
+            busy.dismiss()
+
+            if not data.get("is_plant", True):
+                ErrorModal("That does not look like a plant. Try another photo.").open()
+                return
+
+            self.species = data.get("species", "")
+            # keep the photo, it is already a picture of this plant
+            self.photo_path = path
+            if data.get("light_requirement"):
+                self.light_requirement = data["light_requirement"]
+
+            # now that we know the species, ask for a real care schedule so the
+            # form stops showing the same seven days for every plant
+            self._fetch_care_guide()
+            self._build_step_1()
+
+        def on_failed(message):
+            busy.dismiss()
+            if "503" in message:
+                ErrorModal("AI is not set up. A GEMINI_API_KEY is needed "
+                           "in the .env file.").open()
+            elif "400" in message:
+                ErrorModal("That file type is not supported. "
+                           "Use a JPEG, PNG or WebP image.").open()
+            else:
+                ErrorModal("Could not identify the plant.").open()
+
+        def worker():
+            try:
+                data = api.identify_plant(path)
+                Clock.schedule_once(lambda dt, d=data: on_identified(d))
+            except Exception as exc:
+                Clock.schedule_once(lambda dt, e=str(exc): on_failed(e))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _describe_not_available(self):
+        """
+        the Describe tab has no endpoint behind it yet. saying so is better
+        than a button that silently does nothing
+        """
+        ErrorModal("Coming soon! Working on it.").open()
+
+
+    def _fetch_care_guide(self):
+        """
+        asks gemini for a real care schedule for the identified species
+
+        runs in the background because the form should still be usable while
+        it loads. if it fails the plant can still be saved, it just falls back
+        to the default interval the server uses
+        """
+        species = self.species
+        if not species:
+            return
+
+        def worker():
+            try:
+                guide = api.get_care_preview(species, species)
+                Clock.schedule_once(lambda dt, g=guide: self._on_care_guide(g))
+            except Exception:
+                pass          # not fatal, the plant saves either way
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_care_guide(self, guide):
+        """the guide has arrived, redraw so the real numbers replace Loading"""
+        self.care_guide = guide
+        if self.step == 2:
+            self._build_step_2()
+
+
     def _build_step_1(self):
         self.step = 1
         self.clear_widgets()
@@ -493,6 +624,11 @@ class AddPlantModal(ModalView):
         search_tab = IconButtonRow(icon="\U0001F50D", label_text="Search", bg_color=theme.dark_green, fg_color=[1, 1, 1, 1], radius=dp(10))
         photo_tab = IconButtonRow(icon="\U0001F4F7", label_text="Photo", bg_color=[0, 0, 0, 0], fg_color=theme.muted2, radius=dp(10))
         describe_tab = IconButtonRow(icon="\U0001F4AC", label_text="Describe", bg_color=[0, 0, 0, 0], fg_color=theme.muted2, radius=dp(10))
+
+        # these three were built but never wired to anything, so they looked
+        # clickable and did nothing. search is already the screen you are on
+        photo_tab.bind(on_release=lambda *_: self._identify_from_photo())
+        describe_tab.bind(on_release=lambda *_: self._describe_not_available())
 
         tab_bar.add_widget(search_tab)
         tab_bar.add_widget(photo_tab)
@@ -601,16 +737,14 @@ class AddPlantModal(ModalView):
         photo_lbl.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
         photo_box.add_widget(photo_lbl)
 
-        photo_area = RoundedBox(bg_color=theme.accent_soft, border_color=theme.accent_soft, radius=dp(14), size_hint_y=None, height=dp(80))
-        # we hold onto this one as self so we can change its text later
-        # to show which file got picked
-        self.photo_btn = PillButton(
-            text=self._photo_btn_label(), bg_color=[0, 0, 0, 0],
-            fg_color=theme.dark_green, font_size="12sp",
+        # this holds either the add photo button or, once a photo is chosen,
+        # a thumbnail of it. we keep a reference so it can be swapped later
+        self.photo_area = RoundedBox(
+            bg_color=theme.accent_soft, border_color=theme.accent_soft,
+            radius=dp(14), size_hint_y=None, height=dp(80),
         )
-        self.photo_btn.bind(on_release=lambda *_: self._open_photo_picker())
-        photo_area.add_widget(self.photo_btn)
-        photo_box.add_widget(photo_area)
+        self._render_photo_area()
+        photo_box.add_widget(self.photo_area)
         body.add_widget(photo_box)
 
         nick_box, nick_input = self._labeled_input("Nickname *", "e.g. Big Leaf, Monty, Corner Plant")
@@ -632,11 +766,21 @@ class AddPlantModal(ModalView):
         sched_title.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
         schedule.add_widget(sched_title)
 
-        schedule_items = [
-            ("\U0001F4A7", "Watering", "Every 7 days"),
-            ("\U0001F33F", "Fertilizing", "Every 30 days"),
-            ("\U0001FAB4", "Repotting", "Every 12 months"),
-        ]
+        if self.care_guide:
+            water = self.care_guide["watering_schedule"]["interval_days"]
+            fert = self.care_guide["fertilizing"]["interval_days"]
+            repot = self.care_guide["repotting"]["interval_months"]
+            schedule_items = [
+                ("\U0001F4A7", "Watering", f"Every {water} days"),
+                ("\U0001F33F", "Fertilizing", f"Every {fert} days"),
+                ("\U0001FAB4", "Repotting", f"Every {repot} months"),
+            ]
+        else:
+            schedule_items = [
+                ("\U0001F4A7", "Watering", "Loading..."),
+                ("\U0001F33F", "Fertilizing", "Loading..."),
+                ("\U0001FAB4", "Repotting", "Loading..."),
+            ]
 
         for icon, name, freq in schedule_items:
             row = BoxLayout(size_hint_y=None, height=dp(20))
@@ -670,23 +814,67 @@ class AddPlantModal(ModalView):
         self.add_widget(root)
 
 
-    def _photo_btn_label(self):
-            """
-            what the add photo button says. shows the file name once one is
-            picked, shortened if it is really long so it does not overflow
-            """
-            if not self.photo_path:
-                return "+ Add photo"
-            name = os.path.basename(self.photo_path)
-            return name if len(name) <= 28 else name[:25] + "..."
+    def _render_photo_area(self):
+        """
+        draws whatever belongs in the photo box right now
+
+        with no photo chosen that is just the add photo button. once one is
+        chosen it becomes a thumbnail with the file name and a way to change
+        it, so there is visible proof the photo actually arrived
+        """
+        self.photo_area.clear_widgets()
+
+        if not self.photo_path:
+            self.photo_btn = PillButton(
+                text="+ Add photo", bg_color=[0, 0, 0, 0],
+                fg_color=theme.dark_green, font_size="12sp",
+            )
+            self.photo_btn.bind(on_release=lambda *_: self._open_photo_picker())
+            self.photo_area.add_widget(self.photo_btn)
+            return
+
+        row = BoxLayout(orientation="horizontal", spacing=dp(10),
+                        padding=dp(8))
+
+        thumb = Image(source=self.photo_path, size_hint=(None, 1),
+                      width=dp(64), allow_stretch=True, keep_ratio=True)
+        row.add_widget(thumb)
+
+        text_col = BoxLayout(orientation="vertical", spacing=dp(2))
+
+        ok = Label(text="Photo added", font_size="12sp", bold=True,
+                   color=theme.dark_green, halign="left", valign="bottom")
+        ok.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        text_col.add_widget(ok)
+
+        name = Label(text=self._short_filename(), font_size="10sp",
+                     color=theme.muted2, halign="left", valign="top")
+        name.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        text_col.add_widget(name)
+
+        row.add_widget(text_col)
+
+        change = PillButton(text="Change", bg_color=theme.chip,
+                            fg_color=theme.muted2, font_size="10sp",
+                            size_hint=(None, None), size=(dp(64), dp(28)),
+                            radius=dp(14))
+        change.bind(on_release=lambda *_: self._open_photo_picker())
+        row.add_widget(change)
+
+        self.photo_area.add_widget(row)
+
+    def _short_filename(self):
+        """trims a long file name so it does not overflow the box"""
+        name = os.path.basename(self.photo_path or "")
+        return name if len(name) <= 24 else name[:21] + "..."
 
     def _open_photo_picker(self):
         PhotoPickerModal(on_picked=self._on_photo_picked).open()
 
     def _on_photo_picked(self, path):
-        """called by the picker once the user has chosen a file"""
+        """called by the picker once a file has been chosen or sent from a phone"""
         self.photo_path = path
-        self.photo_btn.text = self._photo_btn_label()
+        self._render_photo_area()
 
 
     def _save(self):
@@ -699,13 +887,19 @@ class AddPlantModal(ModalView):
         self.save_btn.text = "Adding..."
         self.save_btn.disabled = True
 
-       # grab this before the thread starts so the worker is not reaching
+        # grab these before the thread starts so the worker is not reaching
         # back into the widget while the user might still be clicking around
         photo_path = self.photo_path
+        care_guide = self.care_guide
+        light_requirement = self.light_requirement
 
         def worker():
             try:
-                plant = api.create_plant(nickname, species, location)
+                plant = api.create_plant(
+                    nickname, species, location,
+                    care_guide=care_guide,
+                    light_requirement=light_requirement,
+                )
 
                 # the photo endpoint needs a plant id, so the plant has to
                 # exist first. if the photo fails we still keep the plant,
@@ -725,7 +919,6 @@ class AddPlantModal(ModalView):
                 Clock.schedule_once(lambda dt, err=exc: self._on_error(err))
 
         threading.Thread(target=worker, daemon=True).start()
-
     def _on_success(self, plant, photo_failed=False):
         self.dismiss()
         if self.on_saved:

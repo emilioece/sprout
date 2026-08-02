@@ -83,15 +83,23 @@ def fetch_plants():
     return [_decorate(p) for p in plants]
 
 
-def create_plant(nickname: str, species: str, location: str):
-    """POST /plants/ -> the newly created plant dict."""
+def create_plant(nickname, species, location, care_guide=None,
+                 light_requirement=None):
     payload = {
         "nickname": nickname,
         "species": species,
         "location": location or None,
-        "watering_interval_days": 7,
     }
-    resp = requests.post(f"{API_BASE_URL}/plants/", json=payload, timeout=TIMEOUT)
+
+    # when a guide is present the server takes the watering interval from it,
+    # so we do not send a hard coded one alongside it
+    if care_guide:
+        payload["care_guide"] = care_guide
+    if light_requirement:
+        payload["light_requirement"] = light_requirement
+
+    resp = requests.post(f"{API_BASE_URL}/plants/", json=payload,
+                         timeout=TIMEOUT)
     return _decorate(_handle(resp))
 
 
@@ -202,25 +210,42 @@ def download_phone_photo(token, dest_dir=None):
     """
     pulls the staged photo down to a temp file and gives back its path
 
-    from here it is treated exactly like a file picked off the hard drive,
-    so the rest of the save flow does not need to know where it came from
+    the extension has to match what the file actually is. gemini is told the
+    mime type based on the file name, so saving a png as .jpg makes it send
+    png bytes labelled as jpeg, and gemini then reports the photo is not a
+    plant. the content type header is trusted first, and the magic bytes at
+    the start of the file are used as a fallback
     """
     import os
     import tempfile
+
     resp = requests.get(f"{API_BASE_URL}/m/{token}/file", timeout=30)
     if not resp.ok:
         raise ApiError(f"{resp.status_code} {resp.reason}")
 
-    ext = ".jpg"
-    disposition = resp.headers.get("content-disposition", "")
-    for candidate in (".png", ".webp", ".jpeg", ".jpg"):
-        if candidate in disposition.lower():
-            ext = candidate
-            break
+    data = resp.content
+
+    by_content_type = {
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+    }
+    ext = by_content_type.get((resp.headers.get("content-type") or "").lower())
+
+    # every image format starts with its own signature, so this works even
+    # when the server sends no useful headers at all
+    if ext is None:
+        if data.startswith(b"\x89PNG\r\n\x1a\n"):
+            ext = ".png"
+        elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            ext = ".webp"
+        else:
+            ext = ".jpg"
 
     fd, path = tempfile.mkstemp(prefix="sprout_phone_", suffix=ext, dir=dest_dir)
     with os.fdopen(fd, "wb") as fh:
-        fh.write(resp.content)
+        fh.write(data)
     return path
 
 
@@ -230,3 +255,72 @@ def make_qr_png(url, dest_path):
     img = qrcode.make(url)
     img.save(dest_path)
     return dest_path
+
+
+# ---------------------------------------------------------------------------
+# ai features
+# ---------------------------------------------------------------------------
+
+def identify_plant(file_path):
+    """
+    POST /plants/identify -> what plant is in this photo
+
+    comes back with species, a confidence between 0 and 1, whether it looks
+    like a plant at all, some alternative guesses, and a light hint.
+
+    note the form field is called image here, not file. the plant photo
+    endpoint uses file, so they are not interchangeable
+    """
+    mime = mimetypes.guess_type(file_path)[0] or "image/jpeg"
+    filename = os.path.basename(file_path)
+
+    with open(file_path, "rb") as fh:
+        resp = requests.post(
+            f"{API_BASE_URL}/plants/identify",
+            files={"image": (filename, fh, mime)},
+            timeout=60,          # vision calls are slower than normal requests
+        )
+
+    return _handle(resp)
+
+
+def health_check(plant_id, symptoms, soil_moisture=None, light=None):
+    """
+    POST /plants/{id}/health-check -> a triage for one plant
+
+    this one is text based. it needs a plant that already exists, because the
+    server builds the prompt from that plant's species, location and watering
+    history as well as the symptoms typed in
+    """
+    payload = {"symptoms": symptoms}
+    if soil_moisture:
+        payload["soil_moisture"] = soil_moisture
+    if light:
+        payload["light"] = light
+
+    resp = requests.post(
+        f"{API_BASE_URL}/plants/{plant_id}/health-check",
+        json=payload,
+        timeout=60,
+    )
+    return _handle(resp)
+
+def get_care_preview(species, nickname=None):
+    """
+    POST /plants/care-preview -> a full care guide for a species
+
+    this runs before the plant is saved, so the schedule shown in the add
+    plant form is the real one rather than a placeholder. the guide is then
+    sent along with the plant on create, and the backend pulls the watering
+    interval out of it
+    """
+    payload = {"species": species}
+    if nickname:
+        payload["name"] = nickname
+
+    resp = requests.post(
+        f"{API_BASE_URL}/plants/care-preview",
+        json=payload,
+        timeout=60,          # gemini takes a few seconds
+    )
+    return _handle(resp)
