@@ -223,10 +223,30 @@
     # Water button trigger
     IconButton:
         text: "\U0001F4A7"
+        font_name: EMOJI_FONT or self.font_name
         bg_color: theme.water_highlight
         fg_color: hex_color("#1A73E8") if not theme.dark else hex_color("#60A5FA")
         radius: dp(12)
         on_release: root.on_water()
+
+    # Fertilize button trigger
+    IconButton:
+        text: "\U0001F33F"
+        font_name: EMOJI_FONT or self.font_name
+        bg_color: theme.accent_soft
+        fg_color: theme.dark_green
+        radius: dp(12)
+        on_release: root.on_fertilize()
+
+    # Repot button trigger
+    IconButton:
+        text: "\U0001FAB4"
+        font_name: EMOJI_FONT or self.font_name
+        bg_color: theme.chip
+        fg_color: theme.text
+        radius: dp(12)
+        on_release: root.on_repot()
+
 
     # Due status label (e.g. "In 3d")
     Label:

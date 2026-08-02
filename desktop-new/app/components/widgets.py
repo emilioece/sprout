@@ -51,6 +51,8 @@ class PlantRow(RoundedBox):
     due_label = StringProperty("")
     on_water_cb = None
     on_delete_cb = None
+    on_fertilize_cb = None
+    on_repot_cb = None
 
     def on_water(self):
         if self.on_water_cb:
@@ -59,6 +61,14 @@ class PlantRow(RoundedBox):
     def on_delete(self):
         if self.on_delete_cb:
             self.on_delete_cb(self.plant_id, self.plant_name)
+
+    def on_fertilize(self):
+        if self.on_fertilize_cb:
+            self.on_fertilize_cb(self.plant_id)
+
+    def on_repot(self):
+        if self.on_repot_cb:
+            self.on_repot_cb(self.plant_id)
 
 
 class SymptomRow(ButtonBehavior, RoundedBox):

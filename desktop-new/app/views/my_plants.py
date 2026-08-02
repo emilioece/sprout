@@ -101,6 +101,8 @@ def render_my_plants(app):
             )
             row.on_water_cb = app.water_plant
             row.on_delete_cb = app.open_delete_modal
+            row.on_fertilize_cb = app.fertilize_plant
+            row.on_repot_cb = app.repot_plant
             list_box.add_widget(row)
 
         container.add_widget(list_box)

@@ -31,6 +31,11 @@ STAGING_DIR = os.path.join(
 os.makedirs(STAGING_DIR, exist_ok=True)
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+CONTENT_TYPE_EXTENSIONS = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 mb
 TOKEN_TTL_SECONDS = 10 * 60  # a qr code is only good for ten minutes
 
@@ -64,7 +69,11 @@ def create_upload_session():
     """desktop calls this to start a session and get a token for the qr code"""
     _purge_expired()
     token = uuid.uuid4().hex[:12]
-    _sessions[token] = {"created": time.time(), "path": None}
+    _sessions[token] = {
+        "created": time.time(),
+        "path": None,
+        "file_id": uuid.uuid4().hex,
+    }
     return {"token": token, "expires_in": TOKEN_TTL_SECONDS}
 
 
@@ -192,8 +201,8 @@ def receive_mobile_photo(token: str, file: UploadFile = File(...)):
     if session.get("path") and os.path.exists(session["path"]):
         os.remove(session["path"])
 
-    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
-    filepath = os.path.join(STAGING_DIR, f"staged_{token}{ext}")
+    ext = CONTENT_TYPE_EXTENSIONS[file.content_type]
+    filepath = os.path.join(STAGING_DIR, f"staged_{session['file_id']}{ext}")
     with open(filepath, "wb") as f:
         f.write(contents)
 
