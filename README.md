@@ -1,27 +1,31 @@
-# 🌿 Sprout — Personal Plant Care Companion
+# Sprout
+
+Team: Plant Power
+
+Team Members: Salma Gitesatani, Jullianna Grace Facchin, Emilio Lopez, Ivan Esparza-Loera,  Eduardo Luis
 
 > **Sprout** is a desktop application that helps non-technical gardeners create and manage a personal plant collection without feeling overwhelmed. Whether users already know their plants' needs or are just getting started, Sprout organizes care into a clear, actionable schedule.
 
 ---
 
-## 📋 Overview
+## Overview
 
 Managing plant care can quickly become overwhelming for non-technical gardeners. Sprout simplifies plant parenting by transforming care requirements into actionable schedules. Powered by **Gemini 3.5 Flash**, Sprout automatically generates customized watering intervals, light requirements, fertilizing routines, and repotting guides as soon as a plant is added.
 
 ---
 
-## ✨ Features
+## Features
 
-* **🌱 Collection Management:** Catalog plants with nicknames, species, locations, and photos.
-* **🗓️ Automated Care Plans:** Real-time countdowns for watering, repotting, and fertilizing tasks.
-* **📲 Mobile QR Photo Sync:** Seamlessly upload plant photos directly from your smartphone to your desktop app over local Wi-Fi.
-* **🩺 Symptom Diagnostic Guide:** Identify plant issues like yellowing leaves or drooping stems and get immediate care advice.
-* **🌓 Light / Dark Theme:** Dynamically toggle between light and dark modes across the desktop UI.
-* **🔐 Secure Authentication:** User registration and login powered by secure password hashing.
+* **Collection Management:** Catalog plants with nicknames, species, locations, and photos.
+* **Automated Care Plans:** Real-time countdowns for watering, repotting, and fertilizing tasks.
+* **Mobile QR Photo Sync:** Seamlessly upload plant photos directly from your smartphone to your desktop app over local Wi-Fi.
+* **Symptom Diagnostic Guide:** Identify plant issues like yellowing leaves or drooping stems and get immediate care advice.
+* **Light / Dark Theme:** Dynamically toggle between light and dark modes across the desktop UI.
+* **Secure Authentication:** User registration and login powered by secure password hashing.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### **Frontend (Desktop)**
 * **Python 3.10+ (only up to Python 3.13)**
@@ -41,7 +45,7 @@ Managing plant care can quickly become overwhelming for non-technical gardeners.
 
 ---
 
-## ⚙️ Installation & Setup
+## Installation & Setup
 
 ### **Prerequisites**
 * Python **3.10+** installed on your system.
@@ -103,7 +107,7 @@ python main.py
 ```
 
 
-## 📖 How to Use
+## How to Use
 
 ### 1. Account Setup & Authentication
 * **Launch the App:** Open the desktop client. An authentication modal will appear automatically upon startup.
