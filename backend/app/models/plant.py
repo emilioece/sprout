@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy.orm import relationship
 from app.database import Base
 
 class Plant(Base):
@@ -28,4 +29,11 @@ class Plant(Base):
             DateTime, 
             nullable=False, 
             default= lambda: datetime.now(timezone.utc))
+
+    care_guide = relationship(
+            "PlantCareGuide",
+            back_populates="plant",
+            uselist=False,
+            cascade="all, delete-orphan",
+            )
 
