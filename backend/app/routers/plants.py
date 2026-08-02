@@ -1,11 +1,20 @@
+import os
+import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.plant import Plant 
 from app.schemas.plants import PlantCreate, PlantResponse, PlantUpdate 
 from app.services.care_guide_mapper import care_guide_to_orm
+
+# Photos are saved here and served back out at /uploads/<filename>
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
 # Helper function to query plant
 def get_plant_or_404(plant_id:int, db: Session) -> Plant:
@@ -95,6 +104,46 @@ def water_plant(plant_id:int, db: Session = Depends(get_db)):
     plant = get_plant_or_404(plant_id, db)
 
     plant.last_watered_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(plant)
+
+    return plant
+
+# Upload/replace a plant's photo. Saves the file to disk and stores
+@router.post("/{plant_id}/photo", response_model=PlantResponse)
+def upload_plant_photo(
+    plant_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    plant = get_plant_or_404(plant_id, db)
+
+    if file.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Use JPEG, PNG, or WEBP.",
+        )
+
+    contents = file.file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File too large (max 5 MB).")
+
+    # Remove the old photo file, if there was one, so we don't
+    # accumulate orphaned uploads every time a plant's photo changes.
+    if plant.photo_url:
+        old_path = os.path.join(UPLOAD_DIR, os.path.basename(plant.photo_url))
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
+    filename = f"plant_{plant_id}_{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    plant.photo_url = f"/uploads/{filename}"
 
     db.commit()
     db.refresh(plant)
