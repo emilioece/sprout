@@ -6,6 +6,7 @@ from kivy.animation import Animation
 from kivy.metrics import dp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
+from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.modalview import ModalView
 from kivy.uix.scrollview import ScrollView
@@ -225,6 +226,9 @@ class PhotoPickerModal(ModalView):
         height = min(dp(420), Window.height * 0.85)
         super().__init__(size_hint=(None, None), size=(width, height), **kwargs)
         self.on_picked = on_picked
+        self._poll_event = None   # the repeating clock that checks for the photo
+        self._qr_path = None      # temp png of the qr code, cleaned up on close
+        self.bind(on_dismiss=lambda *_: self._stop_polling())
         self._build_landing()
 
     def _shell(self):
@@ -283,13 +287,113 @@ class PhotoPickerModal(ModalView):
             fg_color=theme.dark_green, radius=dp(14),
             size_hint_y=None, height=dp(46), font_name=EMOJI_FONT,
         )
-        self.phone_btn.bind(on_release=lambda *_: self._phone_placeholder())
+        self.phone_btn.bind(on_release=lambda *_: self._build_phone())
         box.add_widget(self.phone_btn)
 
-    def _phone_placeholder(self):
-        """temporary until the qr flow is built"""
-        self.phone_btn.text = "Phone upload coming soon"
-        self.phone_btn.disabled = True
+    def _stop_polling(self):
+        """stops the status checks and deletes the temp qr image"""
+        if self._poll_event:
+            self._poll_event.cancel()
+            self._poll_event = None
+        if self._qr_path and os.path.exists(self._qr_path):
+            os.remove(self._qr_path)
+            self._qr_path = None
+
+    def _build_phone(self):
+        """
+        the qr screen
+
+        asks the backend for a token, draws the url as a qr code, then checks
+        once a second to see if the phone has sent anything yet
+        """
+        import tempfile
+
+        box = self._shell()
+
+        head = BoxLayout(size_hint_y=None, height=dp(30), spacing=dp(8))
+        title = Label(text="Scan with your phone", bold=True, font_size="16sp",
+                      color=theme.text, halign="left", valign="middle")
+        title.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        head.add_widget(title)
+        close_btn = PillButton(text="X", size_hint=(None, None), size=(dp(28), dp(28)),
+                               bg_color=theme.chip, fg_color=theme.muted2, radius=dp(14))
+        close_btn.bind(on_release=lambda *_: self.dismiss())
+        head.add_widget(close_btn)
+        box.add_widget(head)
+
+        self.qr_image = Image(size_hint_y=None, height=dp(210))
+        box.add_widget(self.qr_image)
+
+        self.qr_status = Label(text="Getting your code ready...", font_size="12sp",
+                               color=theme.muted2, size_hint_y=None, height=dp(34),
+                               halign="center", valign="middle")
+        self.qr_status.bind(size=lambda w, *_: setattr(w, "text_size", w.size))
+        box.add_widget(self.qr_status)
+
+        back_btn = PillButton(text="Back", bg_color=theme.chip, fg_color=theme.muted2,
+                              radius=dp(14), size_hint_y=None, height=dp(42))
+        back_btn.bind(on_release=lambda *_: (self._stop_polling(), self._build_landing()))
+        box.add_widget(back_btn)
+
+        # getting the token is a network call, so it goes on a thread to keep
+        # the window from freezing while it waits
+        def worker():
+            try:
+                token, url = api.start_phone_upload()
+                path = os.path.join(tempfile.gettempdir(), f"sprout_qr_{token}.png")
+                api.make_qr_png(url, path)
+                Clock.schedule_once(
+                    lambda dt, t=token, u=url, p=path: self._qr_ready(t, u, p)
+                )
+            except Exception:
+                Clock.schedule_once(lambda dt: self._qr_failed())
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _qr_ready(self, token, url, path):
+        """qr code is drawn, now start watching for the photo to land"""
+        self._qr_path = path
+        self.qr_image.source = path
+        self.qr_image.reload()
+        self.qr_status.text = ("Point your camera at the code\n"
+                               "Your phone must be on the same wifi")
+        self._poll_event = Clock.schedule_interval(
+            lambda dt, t=token: self._check_phone(t), 1.0
+        )
+
+    def _qr_failed(self):
+        self.qr_status.text = ("Could not start the phone upload.\n"
+                               "Is the backend running?")
+
+    def _check_phone(self, token):
+        """
+        runs once a second while the qr code is showing
+
+        the actual request goes on a thread so the ui never stalls, and the
+        result comes back through Clock so kivy is only touched from the
+        main thread
+        """
+        def worker():
+            try:
+                if api.phone_upload_ready(token):
+                    path = api.download_phone_photo(token)
+                    Clock.schedule_once(lambda dt, p=path: self._phone_photo_arrived(p))
+            except Exception:
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _phone_photo_arrived(self, path):
+        """
+        photo is downloaded and sitting in a temp file
+
+        from here it is just a file path, exactly like one picked off the
+        hard drive, so we hand it back the same way
+        """
+        self._stop_polling()
+        self.dismiss()
+        if self.on_picked:
+            self.on_picked(path)
 
     def _build_browser(self):
         """the second screen, an actual file browser starting in pictures"""
@@ -629,7 +733,7 @@ class AddPlantModal(ModalView):
         # the plant did save, so this is a warning and not an error
         if photo_failed:
             ErrorModal("Plant saved, but the photo could not be uploaded.").open()
-            
+
     def _on_error(self, exc):
         self.save_btn.text = "Add to my collection"
         self.save_btn.disabled = False

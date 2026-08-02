@@ -183,3 +183,75 @@ def upload_plant_photo(plant_id, file_path):
         )
 
     return _decorate(_handle(resp))
+
+
+# ---------------------------------------------------------------------------
+# phone upload over the local network
+# ---------------------------------------------------------------------------
+
+def lan_ip():
+    """
+    finds the ip address other devices on the wifi can reach this computer on
+
+    opens a udp socket pointed at a public address and asks the os which
+    local interface it would use. nothing is actually sent, it just makes
+    the os pick a route for us
+    """
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(("8.8.8.8", 80))
+        return sock.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+    finally:
+        sock.close()
+
+
+def start_phone_upload():
+    """asks the backend for a token and builds the url the phone should open"""
+    resp = requests.post(f"{API_BASE_URL}/m/new", timeout=TIMEOUT)
+    data = _handle(resp)
+    token = data["token"]
+    port = API_BASE_URL.rsplit(":", 1)[-1]
+    return token, f"http://{lan_ip()}:{port}/m/{token}"
+
+
+def phone_upload_ready(token):
+    """true once the phone has sent a photo. the desktop polls this"""
+    resp = requests.get(f"{API_BASE_URL}/m/{token}/status", timeout=TIMEOUT)
+    return bool(_handle(resp).get("ready"))
+
+
+def download_phone_photo(token, dest_dir=None):
+    """
+    pulls the staged photo down to a temp file and gives back its path
+
+    from here it is treated exactly like a file picked off the hard drive,
+    so the rest of the save flow does not need to know where it came from
+    """
+    import os
+    import tempfile
+    resp = requests.get(f"{API_BASE_URL}/m/{token}/file", timeout=30)
+    if not resp.ok:
+        raise ApiError(f"{resp.status_code} {resp.reason}")
+
+    ext = ".jpg"
+    disposition = resp.headers.get("content-disposition", "")
+    for candidate in (".png", ".webp", ".jpeg", ".jpg"):
+        if candidate in disposition.lower():
+            ext = candidate
+            break
+
+    fd, path = tempfile.mkstemp(prefix="sprout_phone_", suffix=ext, dir=dest_dir)
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(resp.content)
+    return path
+
+
+def make_qr_png(url, dest_path):
+    """renders the url as a qr code png that kivy can show in an Image widget"""
+    import qrcode
+    img = qrcode.make(url)
+    img.save(dest_path)
+    return dest_path

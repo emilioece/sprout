@@ -16,6 +16,14 @@ def register_emoji_font():
             "C:/Windows/Fonts/seguiemj.ttf",
             "C:/Windows/Fonts/Seguiemj.ttf",
         ]
+    else:
+        # Linux and anything else -- without this branch the loop below
+        # raised NameError instead of returning None.
+        system_candidates = [
+            "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+            "/usr/share/fonts/truetype/ancient-scripts/Symbola_hint.ttf",
+            "~/.local/share/fonts/NotoColorEmoji.ttf",
+        ]
 
     for path in system_candidates:
         expanded_path = os.path.expanduser(path)

@@ -22,7 +22,9 @@ from views.symptom_guide import render_symptom_guide, render_symptom_detail
 
 
 class SproutApp(App):
-    dark_mode_label = StringProperty("\U0001F319  Dark mode")
+    # The moon/sun glyph is drawn by SideNavItem's EmojiLabel (see sprout.kv),
+    # so this label holds text only -- a plain Label can't render emoji.
+    dark_mode_label = StringProperty("Dark mode")
 
     def build(self):
         self.title = "Sprout"
@@ -47,7 +49,7 @@ class SproutApp(App):
 
     def toggle_dark_mode(self):
         theme.toggle()
-        self.dark_mode_label = ("\u2600\uFE0F  Light mode" if theme.dark else "\U0001F319  Dark mode")
+        self.dark_mode_label = "Light mode" if theme.dark else "Dark mode"
         self._update_nav_styles()
         if not self.plants:
             self.render_empty_state()

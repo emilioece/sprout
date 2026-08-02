@@ -74,6 +74,8 @@
 <IconButton@PillButton>:
     size_hint: None, None
     size: dp(40), dp(40)
+    # Buttons default to Roboto, which has no emoji glyphs -> tofu boxes.
+    font_name: EMOJI_FONT if EMOJI_FONT else "Roboto"
 
 <IconButtonRow>:
     padding: dp(14), 0
@@ -259,7 +261,7 @@
 
     # Delete button trigger
     IconButton:
-        text: "\U0001F5D1"
+        text: "\U0001F5D1\uFE0F"
         bg_color: [0, 0, 0, 0]
         fg_color: theme.hint
         size: dp(34), dp(34)

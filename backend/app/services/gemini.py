@@ -58,9 +58,12 @@ def generate_json(
     response_model: type[T],
     model: str | None = None,
     temperature: float = 0.2,
+    image_bytes: bytes | None = None,
+    image_mime_type: str = "image/jpeg",
 ) -> T:
     """
     Call Gemini and parse the response into `response_model`.
+    Optional image_bytes enables vision (photo identify).
     """
     api_key = _require_api_key()
     # You can override the model per-call, or globally via GEMINI_MODEL.
@@ -77,10 +80,19 @@ def generate_json(
 
     client = genai.Client(api_key=api_key)
 
+    # Text-only by default; with an image, send multimodal parts.
+    if image_bytes is not None:
+        contents = [
+            types.Part.from_bytes(data=image_bytes, mime_type=image_mime_type),
+            prompt,
+        ]
+    else:
+        contents = prompt
+
     try:
         resp = client.models.generate_content(
             model=model_name,
-            contents=prompt,
+            contents=contents,
             config=types.GenerateContentConfig(
                 temperature=temperature,
                 # Force JSON + provide a schema so we can validate with Pydantic.

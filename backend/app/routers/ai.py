@@ -1,15 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.plant import Plant
 from app.schemas.care_guide import (
+    CarePreviewRequest,
     CareGuideResponse,
     ChatRequest,
     ChatResponse,
     HealthCheckRequest,
     HealthCheckResponse,
 )
+from app.schemas.identify import PlantIdentification
 from app.services.gemini import generate_json
 
 
@@ -21,9 +23,69 @@ def get_plant_or_404(plant_id: int, db: Session) -> Plant:
     return plant
 
 
-# AI endpoints are nested under `/plants/{plant_id}` so responses can be
-# personalized using stored plant fields (species, light, watering interval, etc).
+# AI endpoints are the `/plants` prefix.
 router = APIRouter(prefix="/plants", tags=["ai"])
+
+
+# Identify a plant from an uploaded photo (no DB write)
+@router.post("/identify", response_model=PlantIdentification)
+async def identify_plant(image: UploadFile = File(...)):
+    content_type = (image.content_type or "").lower()
+    if content_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
+        raise HTTPException(
+                status_code=400,
+                detail="Unsupported image type. Use JPEG, PNG, or WebP.",
+                )
+
+    image_bytes = await image.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Empty image upload.")
+
+    prompt = """
+You are Sprout, a plant identification assistant for beginners.
+Return ONLY valid JSON that matches the given schema.
+
+Task:
+- Identify the plant in the photo.
+- Set is_plant to false if the image is not a plant.
+- Provide a confidence score between 0 and 1.
+- Optionally include a few alternative species guesses.
+- Optionally suggest a high-level light_requirement.
+""".strip()
+
+    return generate_json(
+            prompt=prompt,
+            response_model=PlantIdentification,
+            image_bytes=image_bytes,
+            image_mime_type=content_type if content_type != "image/jpg" else "image/jpeg",
+            )
+
+
+# Generate care data before a plant is saved
+@router.post("/care-preview", response_model=CareGuideResponse)
+def care_preview(payload: CarePreviewRequest):
+    name = payload.name or payload.species
+
+    prompt = f"""
+You are Sprout, a plant care assistant for beginners.
+Return ONLY valid JSON that matches the given schema.
+
+Plant:
+- name: {name}
+- species: {payload.species}
+
+Task:
+Generate a practical care guide with:
+- watering_schedule
+- fertilizing
+- repotting
+
+Constraints:
+- Keep it beginner-friendly and safe.
+- Be specific (numbers, intervals, step-by-step).
+""".strip()
+
+    return generate_json(prompt=prompt, response_model=CareGuideResponse)
 
 
 # Generate a care guide for a plant (watering, fertilizing, repotting)

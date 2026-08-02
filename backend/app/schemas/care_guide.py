@@ -92,6 +92,19 @@ class CareGuideResponse(BaseModel):
 
 
 # ===========================================================================
+# Care preview
+# ===========================================================================
+
+# Species-only care guide generated before the plant is saved
+class CarePreviewRequest(BaseModel):
+    species: str = Field(description="Species to generate a care guide for.")
+    name: str | None = Field(
+        default=None,
+        description="Optional display name; defaults to species.",
+    )
+
+
+# ===========================================================================
 # Symptoms -> Health check
 # ===========================================================================
 
