@@ -13,6 +13,15 @@ import requests
 from datetime import datetime, timezone
 
 API_BASE_URL = "http://localhost:8000"
+# set once after login so every plant call is scoped to the account that is
+# signed in. without this the backend hands back every plant in the database
+CURRENT_USER_ID = None
+
+
+def set_current_user(user_id):
+    """called by the app once a user logs in or registers"""
+    global CURRENT_USER_ID
+    CURRENT_USER_ID = user_id
 TIMEOUT = 10  # seconds
 
 
@@ -77,8 +86,10 @@ def _decorate(plant: dict) -> dict:
 
 
 def fetch_plants():
-    """GET /plants/ -> list of plant dicts."""
-    resp = requests.get(f"{API_BASE_URL}/plants/", timeout=TIMEOUT)
+    """GET /plants/ -> the signed in account's plants only."""
+    resp = requests.get(f"{API_BASE_URL}/plants/",
+                        params={"user_id": CURRENT_USER_ID},
+                        timeout=TIMEOUT)
     plants = _handle(resp) or []
     return [_decorate(p) for p in plants]
 
@@ -89,6 +100,7 @@ def create_plant(nickname, species, location, care_guide=None,
         "nickname": nickname,
         "species": species,
         "location": location or None,
+        "user_id": CURRENT_USER_ID,
     }
 
     # when a guide is present the server takes the watering interval from it,

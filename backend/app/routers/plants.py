@@ -39,8 +39,15 @@ def get_plant_or_404(plant_id:int, db: Session) -> Plant:
 router = APIRouter(prefix = "/plants", tags = ["plants"])
 
 @router.get("/", response_model = list[PlantResponse])
-def list_plants(db: Session = Depends(get_db)):
-    return db.query(Plant).all()
+def list_plants(user_id: int | None = None, db: Session = Depends(get_db)):
+    """
+    Returns the plants belonging to one account.
+
+    user_id comes from the client after login. without it we return the
+    plants that have no owner, which is what rows created before accounts
+    existed look like.
+    """
+    return db.query(Plant).filter(Plant.user_id == user_id).all()
 
 @router.post("/", response_model = PlantResponse, status_code= 201)
 def create_plant(plant_in: PlantCreate, db: Session = Depends(get_db)):
