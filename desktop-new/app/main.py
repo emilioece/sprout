@@ -43,6 +43,10 @@ class SproutApp(App):
 
     def on_authenticated(self, user_data):
         self.current_user = user_data
+        # tell the api layer who is signed in, otherwise every account would
+        # be shown every plant in the database
+        api.set_current_user(user_data.get("id") if user_data else None)
+        self.plants = []
         self._update_nav_styles()
         self.render_empty_state()
         self._fetch_plants()

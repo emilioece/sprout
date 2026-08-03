@@ -5,6 +5,8 @@ from app.schemas.care_guide import CareGuideResponse
 
 # Request model used when adding a new plant
 class PlantCreate(BaseModel):
+    # the account this plant belongs to, sent by the client after login
+    user_id: int | None = None
     species: str
     nickname: str
     location: str | None = None
@@ -30,6 +32,7 @@ class PlantUpdate(BaseModel):
 # Response model returned by API
 class PlantResponse(BaseModel):
     id: int
+    user_id: int | None
     nickname: str
     species: str
     location: str | None
