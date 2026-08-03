@@ -51,6 +51,18 @@ class SproutApp(App):
         self.render_empty_state()
         self._fetch_plants()
 
+    def logout(self):
+        self.current_user = None
+        # clear who's signed in so the api layer stops scoping to them
+        api.set_current_user(None)
+        self.plants = []
+        self.active_tab = "dashboard"
+        self.active_symptom = None
+        # wipe whatever plant data was on screen before showing the login modal
+        self.root_layout.ids.main_content.clear_widgets()
+        self.root_layout.plant_count_label = "0 plants in collection"
+        self.require_login()
+
     def toggle_dark_mode(self):
         theme.toggle()
         self.dark_mode_label = "Light mode" if theme.dark else "Dark mode"
